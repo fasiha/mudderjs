@@ -8,14 +8,8 @@ Let us begin by improving JavaScript’s built-in
 
 because both of these are limited to radixes ≤36, and are limited to strings containing `0-9` and `a-z`. “Radix” here just means numeric base: here’s what these functions do, for the binary radix-2 and alphanumeric radix-36 cases:
 ~~~js
-[ parseInt('1010', 2), (10).toString(2) ]
-/* result:
-[10,"1010"]
-*/
-[ parseInt('7PS', 36), (10000).toString(36) ]
-/* result:
-[10000,"7ps"]
-*/
+console.log([ parseInt('1010', 2), (10).toString(2) ])
+console.log([ parseInt('7PS', 36), (10000).toString(36) ])
 ~~~
 
 How do these two interrelated functions work? Both share what we’ll call a *symbol table*, essentially a list of unique stringy symbols and the number they represent:
@@ -54,10 +48,7 @@ var base36 = parseInt('7PS', 36);
 //       P * Math.pow(36, 1) +
 //       7 * Math.pow(36, 2)
 
-JSON.stringify(base36 === base10 && base10 === 10000);
-/* result:
-true
-*/
+console.log(base36 === base10 && base10 === 10000);
 ~~~
 
 We’ll inevitably have to describe the algorithms used by `parseInt` and `Number.toString` that convert between JavaScript `Number`s and their stringy representations, given a base and symbol table, but let’s specify how symbol tables ought to work in this library.
@@ -85,7 +76,7 @@ var toEmoji = (x, symbols) => symbols.reduce(
     x.toString(symbols.length));
 
 var mealSymbols1 = '🍌🍳☕️,🍱,🍣🍮'.split(',');
-JSON.stringify(toEmoji(42, mealSymbols1));
+console.log(toEmoji(42, mealSymbols1));
 /* result:
 "🍱🍱🍣🍮🍌🍳☕️"
 */
@@ -98,7 +89,7 @@ var fromEmoji = (x, symbols) => parseInt(
         .join(''),
     symbols.length);
 
-JSON.stringify(fromEmoji(toEmoji(42, mealSymbols1), mealSymbols1));
+console.log(fromEmoji(toEmoji(42, mealSymbols1), mealSymbols1));
 /* result:
 42
 */
@@ -170,6 +161,7 @@ fromEmoji(toEmoji(42, mealMap), mealMap);
 /* result:
 42
 */
+// OUTPUT TO index.js
 ~~~
 
 ## References
