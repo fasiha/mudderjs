@@ -120,50 +120,165 @@ Please don’t write code like the above, with chained `map`–`reduce`–`findI
 
 First, let’s make a symbol table `Map` (ES2015 hash table) to go from symbols to numbers ≤`B=3`. This lets us avoid the horrible `findIndex` in `fromEmoi`.
 ~~~js
-var arrToSymbolMap = symbols =>
-  new Map(symbols.map((str, idx) => [str, idx])).set('array', symbols);
-arrToSymbolMap('🍌🍳☕️,🍱,🍣🍮'.split(','));
-/* result:
-Map {
-  '🍌🍳☕️' => 0,
-  '🍱' => 1,
-  '🍣🍮' => 2,
-  'array' => [ '🍌🍳☕️', '🍱', '🍣🍮' ] }
-*/
+var arrToSymbolMap = symbols => new Map(symbols.map((str, idx) => [str, idx]))
+                                    .set('array', symbols)
+                                    .set('base', symbols.length);
+console.log(arrToSymbolMap('🍌🍳☕️,🍱,🍣🍮'.split(',')));
 ~~~
 The map includes a key `'array'` with value of the initial array to serve as the opposite, a mapping from numbers to symbols.
 
 (Aside: we could have been very modern and used ES2015 `Symbol.for('array')` instead of the string `'array'` as the key.)
 
-With this `Map` representing the symbol table, and helper functions `replaceAll` and `symbolMapToRegexp`, we can rewrite `toEmoji` and `fromEmoji`—it still uses `Number.toString` underneath for now and converts `[0-2]` (a perfectly serviceable way to represent numbers in ternary) to emoji.
+With this `Map` representing the symbol table, and helper functions `replaceAll` and `symbolMapToRegexp`…
 ~~~js
 var mealMap = arrToSymbolMap('🍌🍳☕️,🍱,🍣🍮'.split(','));
 
-var replaceAll = (s, search, replace) =>
-  s.replace(new RegExp(search, 'g'), replace);
+var num2numDigitsInBase = (num, b) =>
+    Math.max(1, Math.ceil(Math.log(num + 1) / Math.log(b)));
 
-var symbolMapToRegexp = symbolsMap =>
-  new RegExp(symbolsMap.get('array').map(s => `(${s})`).join('|'), 'g');
+var num2digits = (num, base) => {
+  var numDigits = num2numDigitsInBase(num, base);
+  var digits = Array(numDigits);
+  for (let i = numDigits - 1; i >= 0; i--) {
+    digits[i] = num % base;
+    num = Math.floor(num / base);
+  }
+  return digits;
+};
+num2digits(3 * 3 * 3 * 3, 2);
 
-var toEmoji = (x, symbolsMap) =>
-  symbolsMap.get('array').reduce((prev, curr, i) => replaceAll(prev, i, curr),
-                                 x.toString(symbolsMap.get('array').length));
+var digits2string = (digits, smap) =>
+    digits.map(n => smap.get('array')[n]).join('');
 
-var fromEmoji = (x, symbolsMap) =>
-  parseInt(x.match(symbolMapToRegexp(symbolsMap))
-             .map(symbol => symbolsMap.get(symbol))
-             .join(''),
-           symbolsMap.get('array').length);
+digits2string(num2digits(3 * 3 * 3 * 3, 2), arrToSymbolMap('ab'.split('')));
+
+var string2digits = (str, smap) => {
+  var re = new RegExp('(' + smap.get('array').join('|') + ')', 'g');
+  return str.match(re).map(symbol => smap.get(symbol));
+};
+
+var base62 = arrToSymbolMap(
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".split(''));
+var az = arrToSymbolMap("abcdefghijklmnopqrstuvwxyz".split(''));
+digits2string(string2digits('abcakljafs', az), az);
+
+string2digits('baaa', az);
+string2digits('bcde', az);
+
+var Big = require('big.js');
+digits2big = (digits, base) =>
+    digits.reduce((prev, curr, i) => prev.plus(
+                      Big(curr).times(Big(base).pow(digits.length - i - 1))),
+                  Big(0));
+digits2big(string2digits('aba', az), az.get('base'));
+
+var big2digits1 = (num, base) => {
+  var numDigits =
+      Math.ceil(num.c.length / Math.log10(base)) + 1; // 'emmy'+'ammy'
+  var digits = Array.from(Array(numDigits), x => 0);
+  for (let i = numDigits - 1; i >= 0; i--) {
+    digits[i] = Number(num.mod(base));
+    num = num.div(base).round(null, 0);
+  }
+  return digits;
+};
+ var big2digits = (num, base) => {
+  if (num.cmp(Big(0)) === 0) {
+    return [ 0 ];
+  }
+  var digits = [];
+  while (num >= 1) {
+    digits.unshift(Number(num.mod(base)));
+    num = num.div(base).round(null, 0);
+  }
+  return digits;
+};
+num2digits(0, 2);
+num2digits(3 * 3 * 3 * 3, 2);
+big2digits(Big(3 * 3 * 3 * 3), 2)
+big2digits(Big(5.5), 2);
+big2digits(Big(5), 2);
+big2digits(Big(1), 26);
+big2digits(Big(0), 26);
+
+var digits2num = (digits, smap) => {
+  var base = smap.get('base');
+  return digits.reduce((prev, curr, i) =>
+                           prev + curr * Math.pow(base, digits.length - i - 1),
+                       0);
+};
+digits2num([ 1, 25 ], az);
+
+var zeros = n => Array.from(Array(Math.max(0, n)), _ => 0);
+
+var doStrings = (s1, s2, smap) => {
+  var d1, d2;
+  if (s1) {
+    d1 = string2digits(s1, smap);
+  } else {
+    d1 = [ 0 ];
+  }
+  if (s2) {
+    d2 = string2digits(s2, smap);
+  } else {
+    d2 = zeros(d1.length);
+    d2.unshift(1);
+    d1.unshift(0);
+  }
+  var maxLen = Math.max(d1.length, d2.length);
+  if (d2.length < maxLen) {
+    d2.push(...zeros(maxLen - d2.length));
+  } else if (d1.length < maxLen) {
+    d1.push(...zeros(maxLen - d1.length));
+  }
+  var base = smap.get('base');
+  var b1 = digits2big(d1, base);
+  var b2 = digits2big(d2, base);
+  var mean = b1.plus(b2).div(2);
+
+  var round = mean.round(null, 0);
+  var remainder = mean.minus(round);
+
+  var whole = big2digits(round, base);
+  whole.unshift(...zeros(maxLen - (s2 ? 0 : 1) - whole.length));
+  var withremainder = whole.concat(Number(remainder) > 0 ? Math.ceil(base / 2)
+                                                         : []); // ceil for 2
+  return digits2string(withremainder, smap);
+};
+doStrings('b', 'bd', az)
+doStrings('ba', 'b', az)
+doStrings('cat', 'doggie', az)
+doStrings('doggie', 'cat', az)
+doStrings('ammy', 'emmy', az)
+doStrings('aammy', 'aally', az)
+doStrings('emmy', 'ally', az)
+doStrings('bazi', 'ally', az)
+doStrings('b','azz',az);
+doStrings('a','b',az);
+doStrings('z','b',az);
+doStrings('b', null, az)
+doStrings(null, null, az)
+doStrings('cy', 'cz', az)
+// A symbol map might contain an 'escape hatch' symbol, i.e., one that is only
+// used to find midpoints between equal strings. Such an escape hatch symbol
+// would be one that is not in the standard symbol list. Using this escape hatch
+// would effectively increase the base of this string, and indeed all strings,
+// so it would be added to the symbol list, and future midpoints ought to use
+// it---if the escape hatch didn't become a regular symbol, how could the
+// midpoint system translate a string containing it to a number?
+
+'qwe' < 'qwea'
+// the problem with 'ba' is that there’s no string that can go between it and 'b'. This kind of implies that they’re the same string, given a-z symbols. I mean, if two integers have no integer between them, they're the same too right? It just so happens that, in lexicographic distance, sure 'b' < 'ba', but that doesn't change the underlying fact---integer 5 and 005 don't stop being the same even though their lexicographic distance is different.
+
 ~~~
-Let’s make sure it still works:
+
+
+## Decimal?
 ~~~js
-fromEmoji(toEmoji(42, mealMap), mealMap);
-/* result:
-42
-*/
-// OUTPUT TO index.js
+
+
 ~~~
 
-## References
+##References
 
 Cuneiform: http://it.stlawu.edu/~dmelvill/mesomath/Numbers.html and https://en.wikipedia.org/wiki/Sexagesimal#Babylonian_mathematics and Cuneiform Composite from http://oracc.museum.upenn.edu/doc/help/visitingoracc/fonts/index.html
