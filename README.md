@@ -165,6 +165,25 @@ digits2string(string2digits('abcakljafs', az), az);
 string2digits('baaa', az);
 string2digits('bcde', az);
 
+var digits2num = (digits, smap) => {
+  var base = smap.get('base');
+  return digits.reduce((prev, curr, i) =>
+                           prev + curr * Math.pow(base, digits.length - i - 1),
+                       0);
+};
+digits2num([ 1, 25 ], az);
+
+
+function lexdist(a,b) {
+  const minlen = Math.min(a.length, b.length);
+  for (let i = 0; i < minlen; i++){
+    if (a[i] !== b[i]) {
+      return a[i] - b[i];
+    }
+  }
+  return a.length - b.length;
+}
+
 var Big = require('big.js');
 digits2big = (digits, base) =>
     digits.reduce((prev, curr, i) => prev.plus(
@@ -201,17 +220,10 @@ big2digits(Big(5), 2);
 big2digits(Big(1), 26);
 big2digits(Big(0), 26);
 
-var digits2num = (digits, smap) => {
-  var base = smap.get('base');
-  return digits.reduce((prev, curr, i) =>
-                           prev + curr * Math.pow(base, digits.length - i - 1),
-                       0);
-};
-digits2num([ 1, 25 ], az);
-
 var zeros = n => Array.from(Array(Math.max(0, n)), _ => 0);
 
-var doStrings = (s1, s2, smap) => {
+
+var doStrings = (s1, s2, smap, approximate) => {
   var d1, d2;
   if (s1) {
     d1 = string2digits(s1, smap);
@@ -243,22 +255,46 @@ var doStrings = (s1, s2, smap) => {
   whole.unshift(...zeros(maxLen - (s2 ? 0 : 1) - whole.length));
   var withremainder = whole.concat(Number(remainder) > 0 ? Math.ceil(base / 2)
                                                          : []); // ceil for 2
-  return digits2string(withremainder, smap);
+
+  if (approximate) {
+    if (lexdist(d1, d2) > 0) {
+      [d2, d1] = [ d1, d2 ];
+    }
+    for (var i = 0; i < d1.length; i++) {
+      if (d1[i] < withremainder[i]) {
+        return digits2string(withremainder.slice(0, i+1), smap);
+      }
+    }
+    for (; i < withremainder.length; i++) {
+      if (withremainder[i]) {
+        break;
+      }
+    }
+    return digits2string(withremainder.slice(0, i+1), smap);
+  }
+
+  return digits2string(withremainder, smap);; // replace trailing 0s
 };
 doStrings('b', 'bd', az)
 doStrings('ba', 'b', az)
 doStrings('cat', 'doggie', az)
-doStrings('doggie', 'cat', az)
+doStrings('doggie', 'cat', az,true)
 doStrings('ammy', 'emmy', az)
 doStrings('aammy', 'aally', az)
 doStrings('emmy', 'ally', az)
 doStrings('bazi', 'ally', az)
 doStrings('b','azz',az);
 doStrings('a','b',az);
+doStrings(null,'b',az);
 doStrings('z','b',az);
 doStrings('b', null, az)
 doStrings(null, null, az)
-doStrings('cy', 'cz', az)
+doStrings('db', 'cz', az)
+doStrings('asd', 'asdb', az,true);
+
+string2digits('wqe', az)
+
+
 // A symbol map might contain an 'escape hatch' symbol, i.e., one that is only
 // used to find midpoints between equal strings. Such an escape hatch symbol
 // would be one that is not in the standard symbol list. Using this escape hatch
