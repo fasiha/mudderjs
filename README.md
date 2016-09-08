@@ -174,6 +174,52 @@ var digits2num = (digits, smap) => {
 digits2num([ 1, 25 ], az);
 
 
+function longAdd(a, b, base) {
+  // sum starts out as copy of longer
+  const sum = a.length < b.length ? b.slice() : a.slice();
+  // short is a reference to the shorter
+  const short = !(a.length < b.length) ? b : a;
+
+  let carry = 0;
+  for (let idx = short.length - 1; idx >= 0; idx--) {
+    let tmp = sum[idx] + short[idx] + carry;
+    if (tmp >= base) {
+      sum[idx] = tmp - base;
+      carry = 1;
+    } else {
+      sum[idx] = tmp;
+      carry = 0;
+    }
+  }
+  return {sum : sum, overflow : carry};
+}
+
+function longDiv(numeratorArr, den, base) {
+  return numeratorArr.reduce((prev, curr) => {
+    let newNum = curr + prev.rem * base;
+    return {
+      div : prev.div.concat(Math.floor(newNum / den)),
+      rem : newNum % den
+    };
+  }, {div : [], rem : 0});
+}
+
+function longMean(a, b, base) {
+  const {sum, overflow} = longAdd(b, a, base);
+
+  let {div : mean, rem} = longDiv(sum, 2, base);
+  if (rem) {
+    mean.push(Math.ceil(base / 2));
+  }
+  if (overflow) {
+    mean[0] += Math.floor(base / 2);
+  }
+
+  return mean;
+}
+
+
+
 function lexdist(a,b) {
   const minlen = Math.min(a.length, b.length);
   for (let i = 0; i < minlen; i++){
@@ -293,6 +339,61 @@ doStrings('db', 'cz', az)
 doStrings('asd', 'asdb', az,true);
 
 string2digits('wqe', az)
+
+
+
+function doLong(s1, s2, smap, approximate) {
+  var d1, d2;
+  if (s1) {
+    d1 = string2digits(s1, smap);
+  } else {
+    d1 = [ 0 ];
+  }
+  if (s2) {
+    d2 = string2digits(s2, smap);
+  } else {
+    d2 = [ 1 ];
+    d1.unshift(0);
+  }
+
+  var mean = longMean(d1, d2, smap.get('base'));
+
+  while(mean[mean.length-1]===0) {
+    mean.pop();
+  }
+  if (mean.length===0){
+    throw new RangeError("Couldn't find non-empty midpoint. Did you ask for "+
+    "midpoint between two empty or zero-symbol strings?")
+  }
+
+  if (approximate) {
+    if (lexdist(d1, d2) > 0) {
+      [d2, d1] = [ d1, d2 ];
+    }
+    for (var i = 0; i < mean.length; i++) {
+      if ((i < d1.length && d1[i] < mean[i]) || (i >= d1.length && mean[i])) {
+        break;
+      }
+    }
+    return digits2string(mean.slice(s2 ? 0 : 1, i + 1), smap);
+  }
+  if (!s2) {
+    mean.shift();
+  }
+  return digits2string(mean, smap);
+}
+var nums = arrToSymbolMap('0123456789'.split(''));
+doStrings('95', '9501', nums,true)
+doLong('89', '91', nums)
+doLong('89', '91', nums, true)
+doLong('95', null, nums,!true)
+doLong('b', null, az)
+doStrings('b', null, az)
+doLong('0','0',nums)
+
+var binary = arrToSymbolMap("01".split(''));
+doStrings('101', '11', binary,true)
+doLong('10101', '11', binary,true)
 
 
 // A symbol map might contain an 'escape hatch' symbol, i.e., one that is only
