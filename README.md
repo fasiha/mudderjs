@@ -117,36 +117,99 @@ So if our super-`parseInt` is working with a _not_-prefix-free symbol table, it 
 
 ### A plea
 
-Please, please don’t write code like the above except for throw-away explorations, like I was doing. While you may be able to cobble together nested map–reduce–finds that get the job done in a relatively short amount of time, when you can clearly visualize the inputs and desired outputs and the transform between them, it will take much longer to get to that visualization later by reading such code.
+Please, please don’t write code like the above except for throw-away explorations, like I was doing. While you may be able to cobble together nested map–reduce–finds that run in quadratic time yet get the job done in a relatively short amount of time because you can clearly visualize the inputs and desired outputs and the transform between them, it will take much longer to rebuild that visualization later, when it’s gone, by reading such code.
 
 So, let’s write it.
 
 ## String ↔︎ (digits) ↔︎ JavaScript number
 
-~~~js
-4+23
-~~~
+### Is it a prefix code?
+I’ve decided—parsing a string to a number will only be attempted for prefix-free symbol tables. You can still use prefixed symbols but if you do, you have to split your string into an array of sub-strings yourself.
 
+So, let’s write a dumb way to decide if a set or array of stringy symbols constitutes a prefix code. If any symbol is a prefix of another symbol (other than itself of course), the symbol table **isn’t** prefix-free, and we don’t have a prefix code.
 ~~~js
-function isPrefixCode(arr) {
-  // The reason we're using for...in (instead of for...of) is to catch cases
-  // where arr has repeated elements. By looping over indexes via for...in, we
-  // can skip the case where `index1===index2` but otherwise detect repeated
-  // symbols. If we looped over values (for...of), we wouldn't catch repeats as
-  // easily.
-  for (let i in arr) {
-    for (let j in arr) {
+function isPrefixCode(strings) {
+  // Note: we skip checking for prefixness if two symbols are equal to each
+  // other. This implies that repeated symbols in the input are *silently
+  // ignored*!
+  for (const i of strings) {
+    for (const j of strings) {
       if (j === i) {
         continue;
       }
-      if (arr[i].startsWith(arr[j])) {
+      if (i.startsWith(j)) {
         return false;
       }
     }
   }
   return true;
 }
+~~~
+As with most mundane-seeming things, there’s some subtlety here: note how, inside the double-loop, we skip comparing the same *strings*. In the event that the input symbols set has *repeats*, this function will implicitly treat those repeats as the same symbol. The alternative—to ascribe some sort of meaning to repeated elements in the symbol set like it’d never be a good idea. Please advise if this decision was wrong.
 
+Making sure it works:
+~~~js
+console.log(isPrefixCode('a,b,c'.split(',')));
+console.log(isPrefixCode('a,b,bc'.split(',')));
+~~~
+
+But wait! This nested-loop has quadratic runtime, with `N*N` string equality checks and nearly `N*N` `startsWith()`s, for an `N`-element input. Can’t this be recast as an `N*log(N)` operation, by first *sorting* the stringy symbols lexicographically (`N*log(N)` runtime), and then looping through once to check `startsWith`? Try this:
+~~~js
+function isPrefixCodeLogLinear(strings) {
+  strings = Array.from(strings).sort(); // set->array or array->copy
+  for (const [i, curr] of strings.entries()) {
+    const prev = strings[i - 1]; // undefined for first iteration
+    if (prev === curr) {         // Skip repeated entries, match quadratic API
+      continue;
+    }
+    if (curr.startsWith(prev)) { // str.startsWith(undefined) always false
+      return false;
+    };
+  }
+  return true;
+}
+~~~
+A cogent definition of lexicographic ordering is in [documentation for Java’s `compareTo`](http://docs.oracle.com/javase/8/docs/api/java/lang/String.html#compareTo-java.lang.String-), but in a nutshell—to find the lex-distance between two strings, find the first position where they differ and subtract the the two characters at that position. If they’re the same and a string ends, return the difference in their lengths. Therefore:
+~~~js
+console.log('a,ba,bbbb,baaaa,baz,bz,z'.split(',').sort());
+// Why 'ba', then 'baaaa', then 'baz'?
+// 'ba' - 'baaaa' = length('ba') - length('baaaa') = -3
+// 'ba' - 'baz' = length('ba') - length('baz') = -1
+// 'baaaa' - 'baz' = 'a' - 'z' = -25
+~~~
+It certainly appears that, after sorting, a string will be preceded by its prefix, so a sequential scan through the sorted array, looking for prefixes, ought to do the trick. And indeed, it seems to work:
+~~~js
+console.log(isPrefixCodeLogLinear('a,b,c'.split(',')));
+console.log(isPrefixCodeLogLinear('a,b,bc'.split(',')));
+
+var foo = 'a b cqweasd def sa szb szq szbb'.split(/\s+/);
+var s =
+    'corrupt raspberry blockhead shop delicate discipline discipline-elegant liquid district sparkle';
+var bar = s.split(/\s+/);
+console.log(isPrefixCodeLogLinear(foo));
+
+console.log(isPrefixCodeLogLinear(bar));
+~~~
+But is it faster? Let’s test it on a pile of very big random numbers, the set of which is likely to be prefix-free, so neither algorithm bails early after finding a prefix:
+~~~js
+test = Array.from(Array(1000), () => '' + Math.floor(Math.random() * 10000000));
+console.time('quad');
+isPrefixCode(test);
+console.timeEnd('quad');
+
+console.time('log');
+isPrefixCodeLogLinear(test);
+console.timeEnd('log');
+~~~
+Yes indeed, the log-linear approach using sorted strings is maybe ~100× faster than the quadratic approach using a double-loop. [@KWillets on Computer Science StackExchange](http://cs.stackexchange.com/q/63309/8216) was kind enough to confirm that this sort-based approach to determining the prefix property of a set of strings is legit—hooray 🙌! So let’s use this:
+~~~js
+isPrefixCode = isPrefixCodeLogLinear;
+~~~
+
+### Symbol table object constructor
+
+
+~~~js
 /* Constructor:
 symbolsArr is a string (split into an array) or an array. In either case, it
 maps numbers (array indexes) to stringy symbols. Its length defines the max
@@ -270,15 +333,14 @@ var oda = new SymbolTable('天下布武');
 var meals = new SymbolTable('🍌🍳☕️,🍱,🍣🍮'.split(','));
 var base62 = new SymbolTable(
     '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz');
-var rad = new SymbolTable(
-    '一丨丶丿乙亅二亠人儿入八冂冖冫几凵刀力勹匕匚匸十卜卩厂厶又口' +
-    '囗土士夂夊夕大女子宀寸小尢尸屮山川工己巾干幺广廴廾弋弓彐彡彳' +
-    '心戈戶手支攴文斗斤方无日曰月木欠止歹殳毋比毛氏气水火爪父爻爿' +
-    '片牙牛犬玄玉瓜瓦甘生用田疋疒癶白皮皿目矛矢石示禸禾穴立竹米糸' +
-    '缶网羊羽老而耒耳聿肉臣自至臼舌舛舟艮色艸虍虫血行衣襾見角言谷' +
-    '豆豕豸貝赤走足身車辛辰辵邑酉釆里金長門阜隶隹雨青非面革韋韭音' +
-    '頁風飛食首香馬骨高髟鬥鬯鬲鬼魚鳥鹵鹿麥麻黃黍黑黹黽鼎鼓鼠鼻齊' +
-    '齒龍龜龠');
+var kangxi = `一丨丶丿乙亅二亠人儿入八冂冖冫几凵刀力勹匕匚匸十卜卩厂厶又口囗土士
+              夂夊夕大女子宀寸小尢尸屮山川工己巾干幺广廴廾弋弓彐彡彳心戈戶手支攴
+              文斗斤方无日曰月木欠止歹殳毋比毛氏气水火爪父爻爿片牙牛犬玄玉瓜瓦甘
+              生用田疋疒癶白皮皿目矛矢石示禸禾穴立竹米糸缶网羊羽老而耒耳聿肉臣自
+              至臼舌舛舟艮色艸虍虫血行衣襾見角言谷豆豕豸貝赤走足身車辛辰辵邑酉釆
+              里金長門阜隶隹雨青非面革韋韭音頁風飛食首香馬骨高髟鬥鬯鬲鬼魚鳥鹵鹿
+              麥麻黃黍黑黹黽鼎鼓鼠鼻齊齒龍龜龠`.replace(/\s/g, '');
+var rad = new SymbolTable(kangxi);
 
 var v = [ 0, 1, 9, 10, 35, 36, 37, 61, 62, 63, 1945 ];
 console.log(v.map(
