@@ -12,6 +12,7 @@ console.log([ parseInt('1010', 2), (10).toString(2) ])
 console.log([ parseInt('7PS', 36), (10000).toString(36) ])
 ~~~
 
+## Symbol tables
 How do these two interrelated functions work? Both share what we’ll call a *symbol table*, essentially a list of unique stringy symbols and the number they represent:
 
 - `0` ⇔ 0
@@ -55,20 +56,16 @@ We’ll inevitably have to describe the algorithms used by `parseInt` and `Numbe
 
 Relevant aside: it’s not a requirement that the entries in the symbol table be lexicographically-sorted, but that is super-important in some applications.
 
-A symbol table can be provided as:
+Here are some possible ways to provide a symbol table:
 
 1. **a string** Great for those simple use-cases, the string can be split into characters using `String.split('')`, and each character is the symbol for its index number.
 1. **an array of strings** Similar story, just skip `String.split`. This is nice because we can have multi-“character” symbols, such as emoji (which `String.split` will butcher), or words (in any language, even cuneiform—want to know how to write your age using your family members’ names as symbols? just wait…).
 1. **an object mapping stringy symbols to numbers** This would let us specify fully-generic symbol tables like `parseInt`’s, where both `'A'` and `'a'` correspond to 10. When multiple symbols map to the same number, we need a way to know which of them is the “default” for converting numbers to stringy digits (like how `Number.toString` outputs only lowercase letters).
 
-This discussion of `String.split` reminds me—how will this library’s `parseInt` break up stringy inputs into symbols? If we have a ternary radix-3 system where 0=🍌🍳☕️, 1=🍱, and 2=🍣🍮 (my three meals of the day),
-~~~js
-JSON.stringify('🍱🍱🍣🍮🍌🍳☕️'.split(''));
-/* result:
-["�","�","�","�","�","�","�","�","�","�","�","�","☕","️"]
-*/
-~~~
-would be completely unsuitable. You know what…? Oh fine, let’s write some code to generate those tasty numbers:
+## Strings to symbols—some prefix specifics
+This discussion of `String.split` reminds me—how will this library’s `parseInt` break up stringy inputs into symbols?
+
+Suppose we have a ternary radix-3 system where 0=🍌🍳☕️, 1=🍱, and 2=🍣🍮 (my three meals of the day). Here’s a quick-and-dirty way to represent numbers in this radix-3 numerical system with meals as symbols, so we can get to this question of how to go from strings back to numbers:
 ~~~js
 // We’d like to call `toEmoji(42, '🍌🍳☕️,🍱,🍣🍮'.split(','))`:
 var toEmoji = (x, symbols) => symbols.reduce(
@@ -81,7 +78,9 @@ console.log(toEmoji(42, mealSymbols1));
 "🍱🍱🍣🍮🍌🍳☕️"
 */
 ~~~
-(42)<sub>10</sub> with this symbol table is (🍱🍱🍣🍮🍌🍳☕️)<sub>today’s meals</sub>. With some regular expression fanciness, we can extract the epicurean symbols and get back a number:
+Ok, seems to work: (42)<sub>10</sub> with this symbol table is (🍱🍱🍣🍮🍌🍳☕️)<sub>today’s meals</sub>.
+
+Now, how would one convert this back to a number?—specifically, how would one find each digit in this epicurean radix-3 representation of a number? One option: with some regular expression fanciness:
 ~~~js
 var fromEmoji = (x, symbols) => parseInt(
     x.match(new RegExp(symbols.map(s => `(${s})`).join('|'), 'g'))
@@ -94,28 +93,192 @@ console.log(fromEmoji(toEmoji(42, mealSymbols1), mealSymbols1));
 42
 */
 ~~~
+The code is obscenely complicated but it does seem to work (we’ll make rewrite it more coherently shortly).
+
 BUT WAIT! What happens if I have voluminous bento leftovers 🍱 for dinner? Then the symbol for 2 is 🍱🍮:
 ~~~js
 var mealSymbolsBad = '🍌🍳☕️,🍱,🍱🍮'.split(',');
-JSON.stringify(toEmoji(42, mealSymbolsBad))
+console.log(toEmoji(42, mealSymbolsBad))
 /* result:
 "🍱🍱🍱🍮🍌🍳☕️"
 */
-JSON.stringify(fromEmoji(toEmoji(42, mealSymbolsBad), mealSymbolsBad));
+console.log(fromEmoji(toEmoji(42, mealSymbolsBad), mealSymbolsBad));
 /* result:
 39
 */
 ~~~
-We get the wrong answer. I’m writing this on the fly here, and it’s very possible I have a bug in `to/fromEmoji` but actually, there’s a real problem here: one of the symbols is another symbol’s prefix, so the regular expression snaps up the first 🍱=lunch=1 in 🍱🍮=dinner=2, fails to match the lone suffix ‘🍮’ so skips it, and generally makes a mess of things.
+*We get the wrong answer!* I’m writing this on the fly here, and it’s very possible I have a bug in `to/fromEmoji` but actually, there’s a real problem here: one of the symbols is another symbol’s prefix, so the regular expression snaps up the first 🍱=lunch=1 in 🍱🍮=dinner=2, therefore failing to match the lone suffix ‘🍮’ and skips 🍮 entirely, and generally makes a mess of things.
 
 At this stage one might recall reading about Huffman coding, or Dr El Gamal’s lecture on [prefix codes](https://en.wikipedia.org/wiki/Prefix_code) in information theory class. One way or another, we decide that, if we consume a plain string without any ‘commas’ (non-numeric inter-symbol punctuation), the symbol table has to be prefix-free, i.e., *no complete symbol can serve as prefix to another symbol.*
 
-(Aside: in this particular example, the presence of prefixing isn’t catastrophic—in fact, by constructing a regular expression with symbols arranged longest-to-shortest (in terms of number of characters), it would have worked—but only because the trailing suffix, 🍮 dessert, wasn’t itself a symbol. Prefix codes buy us simplicity of decoding, but if you really want symbol tables with prefixes, write to me and we can work out the details.)
+(Aside: in this particular example, the presence of prefixing isn’t catastrophic—in fact, by constructing a regular expression with symbols arranged longest-to-shortest (in terms of number of characters), it would have worked—but only because the trailing suffix, 🍮 dessert, wasn’t itself a symbol. By choosing to parse strings into symbols only with prefix codes, we’re making life a little simpler for ourselves, but no doubt there are ways to deal with symbol tables with prefixes—if you really want them, write to me and we can work out the details.)
 
-So if our super-`parseInt` is working with a _not_-prefix-free symbol table, it should only accept an array, each element of which is a single stringy symbol. If its symbol table _is_ prefix-free, a string of symbols, like `'🍱🍱🍣🍮🍌🍳☕️'` is acceptable if hunger-inducing.
+So if our super-`parseInt` is working with a _not_-prefix-free symbol table, it should only accept an array, each element of which is a single stringy symbol. If its symbol table _is_ prefix-free, then a string of symbols, like `'🍱🍱🍣🍮🍌🍳☕️'` is acceptable if hunger-inducing.
 
-### Explaining code craziness
+### A plea
 
+Please, please don’t write code like the above except for throw-away explorations, like I was doing. While you may be able to cobble together nested map–reduce–finds that get the job done in a relatively short amount of time, when you can clearly visualize the inputs and desired outputs and the transform between them, it will take much longer to get to that visualization later by reading such code.
+
+So, let’s write it.
+
+## String ↔︎ (digits) ↔︎ JavaScript number
+
+~~~js
+4+23
+~~~
+
+~~~js
+function isPrefixCode(arr) {
+  // The reason we're using for...in (instead of for...of) is to catch cases
+  // where arr has repeated elements. By looping over indexes via for...in, we
+  // can skip the case where `index1===index2` but otherwise detect repeated
+  // symbols. If we looped over values (for...of), we wouldn't catch repeats as
+  // easily.
+  for (let i in arr) {
+    for (let j in arr) {
+      if (j === i) {
+        continue;
+      }
+      if (arr[i].startsWith(arr[j])) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+/* Constructor:
+symbolsArr is a string (split into an array) or an array. In either case, it
+maps numbers (array indexes) to stringy symbols. Its length defines the max
+radix the symbol table can handle.
+
+symbolsMap is optional, but goes the other way, so it can be an object or Map.
+Its keys are stringy symbols and its values are numbers. If omitted, the
+implied map goes from the indexes of symbolsArr to the symbols.
+
+When symbolsMap is provided, its values are checked to ensure that each number
+from 0 to max radix minus one is present. If you had a symbol as an entry in
+symbolsArr, then number->string would use that symbol, but the resulting
+string couldn't be parsed because that symbol wasn't in symbolMap.
+*/
+function SymbolTable(symbolsArr, symbolsMap) {
+  'use strict';
+  if (typeof this === 'undefined') {
+    throw new TypeError('constructor called as a function')
+  };
+
+  if (typeof symbolsArr === 'string') {
+    symbolsArr = symbolsArr.split('');
+    this.num2sym = symbolsArr;
+    this.sym2num = new Map(symbolsArr.map((str, idx) => [str, idx]));
+  } else if (Array.isArray(symbolsArr)) {
+    this.num2sym = symbolsArr;
+    if (typeof symbolsMap === 'undefined') {
+      symbolsMap = new Map(symbolsArr.map((str, idx) => [str, idx]));
+    } else if (symbolsMap instanceof Map) {
+      symbolsMap = symbolsMap;
+    } else if (symbolsMap instanceof Object) {
+      symbolsMap = new Map(symbolsMap.entries());
+    } else {
+      throw new TypeError(
+          'arguments: (string), (array), (array, map), or (array, object)');
+    }
+    let symbolsValuesSet = new Set(symbolsMap.values());
+    for (let i = 0; i < symbolsArr.length; i++) {
+      if (!symbolsValuesSet.has(i)) {
+        throw new RangeError(symbolsArr.length + ' symbols given but ' + i +
+                             ' not found in symbol table');
+      }
+    }
+    this.sym2num = symbolsMap;
+  } else {
+    throw new TypeError(
+        'arguments: (string), (array), (array, map), or (array, object)');
+  }
+
+  this.maxBase = this.num2sym.length;
+  this.isPrefixCode = isPrefixCode(symbolsArr);
+}
+
+var binary = new SymbolTable('01');
+var decimal = new SymbolTable('0123456789');
+var meals = new SymbolTable('🍌🍳☕️,🍱,🍣🍮'.split(','));
+console.log([ binary, decimal, meals ]);
+~~~
+
+~~~js
+SymbolTable.prototype.numberToDigits = function(num, base) {
+  base = base || this.maxBase;
+  let digits = [];
+  while (num >= 1) {
+    digits.push(num % base);
+    num = Math.floor(num / base);
+  }
+  return digits.length ? digits.reverse() : [ 0 ];
+};
+console.log(decimal.numberToDigits(123));
+console.log(decimal.numberToDigits(0));
+~~~
+
+~~~js
+SymbolTable.prototype.digitsToString = function(digits) {
+  return digits.map(n => this.num2sym[n]).join('');
+};
+decimal.digitsToString(decimal.numberToDigits(123))
+~~~
+
+~~~js
+SymbolTable.prototype.stringToDigits = function(string) {
+  if (!this.isPrefixCode && typeof string === 'string') {
+    throw new TypeError(
+        'parsing string without prefix code is unsupported. Pass in array of stringy symbols?');
+  }
+  if (typeof string === 'string') {
+    const re = new RegExp('(' + this.num2sym.join('|') + ')', 'g');
+    string = string.match(re);
+  }
+  return string.map(symbol => this.sym2num.get(symbol));
+};
+console.log(decimal.stringToDigits('123'));
+console.log(decimal.stringToDigits('123'.split('')));
+~~~
+
+~~~js
+SymbolTable.prototype.digitsToNumber = function(digits, base) {
+  base = base || this.maxBase;
+  return digits.reduce((prev, curr, i) =>
+                           prev + curr * Math.pow(base, digits.length - i - 1),
+                       0);
+};
+console.log(decimal.digitsToNumber(decimal.stringToDigits('123')));
+console.log(decimal.digitsToNumber(decimal.stringToDigits(
+    decimal.digitsToString(decimal.numberToDigits(123)))));
+
+SymbolTable.prototype.numberToString = function(num, base) {
+  return this.digitsToString(this.numberToDigits(num, base));
+};
+SymbolTable.prototype.stringToNumber = function(num, base) {
+  return this.digitsToNumber(this.stringToDigits(num), base);
+};
+decimal.numberToString(decimal.stringToNumber('123'));
+
+~~~
+
+Now for some fun.
+~~~js
+var oda = new SymbolTable('天下布武');
+var meals = new SymbolTable('🍌🍳☕️,🍱,🍣🍮'.split(','));
+var base62 = new SymbolTable(
+    '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz');
+
+var v = [ 0, 1, 9, 10, 35, 36, 37, 61, 62, 63, 1945, 19450, 194500 ];
+console.log(v.map(
+    x =>
+        `${x} ${base62.numberToString(x)} ${oda.numberToString(x)} ${meals.numberToString(x)}`));
+
+~~~
+
+## Misc…
 Please don’t write code like the above, with chained `map`–`reduce`–`findIndex` insanity and quadratic searches—I’ve been thinking about these things for a bit and just wanted to throw something together. Here’s a more annotated version of both `toEmoji` and `fromEmoji`:
 
 First, let’s make a symbol table `Map` (ES2015 hash table) to go from symbols to numbers ≤`B=3`. This lets us avoid the horrible `findIndex` in `fromEmoi`.
