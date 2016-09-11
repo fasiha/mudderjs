@@ -746,19 +746,68 @@ doLong('1','1000002',tern,true)
 function range0f(n, f) { return Array.from(Array(n), (_, i) => f(i)); }
 function range(n) { return Array.from(Array(n), (_, i) => i); }
 function empty(n) { return Array.from(Array(n)); }
+function zeros(n) { return Array.from(Array(n), () => 0); }
+function longAddRem(a, b, base) {
+  if (a.den !== b.den) {
+    throw new Error(
+        'unimplemented: adding fractions of different denominators');
+  }
+  var res = longAdd(a.div, b.div, base);
+  if (res.overflow) {
+    throw new Error('unsupported: overflow add');
+  }
+  var rem = a.rem + b.rem;
+  while (rem >= a.den) {
+    rem -= a.den;
+    var tmp = zeros(res.sum.length);
+    tmp[tmp.length - 1] = 1;
+    res = longAdd(res.sum, tmp, base);
+    if (res.overflow) {
+      throw new Error('unsupported: overflow add');
+    }
+  }
+  return {div: res.sum, rem, den:a.den};
+}
+console.log(longAddRem({div: [4,5], rem:7, den:12}, {div:[4,5], rem:7, den:12}, 10))
+
+function roundQuotientRemainder(sol, base) {
+  var places = Math.ceil(Math.log(sol.den) / Math.log(base));
+  var scale = Math.pow(10, places);
+  var a = sol.div;
+  var rem = Math.round(sol.rem * scale / sol.den);
+  var remDigits = num2digits(rem, base);
+  return sol.div.concat(zeros(places - remDigits.length)).concat(remDigits);
+}
+.1 + .1/19
+roundQuotientRemainder({div: [1], rem: 1, den:19}, 10)
 
 function subdivLinear(a,b,smap, n) {
-  if (lexdist(a, b) > 0) {
-    [a, b] = [b, a];
-  }
-  var aN = longDiv(a, n, smap.get('base'));
-  var bN = longDiv(b, n, smap.get('base'));
+  var base = smap.get('base');
+  var aN = longDiv(a, n, base);
+  var bN = longDiv(b, n, base);
   var as = empty(n-1);
   var bs = empty(n-1);
-  for (var i = 1; i<= N-1; i++) {
-    as[i]
+  as[0] = aN;
+  bs[0] = bN;
+  for (var i = 1; i< n-1; i++) {
+    as[i] = longAddRem(aN, as[i-1], base);
+    bs[i] = longAddRem(bN, bs[i-1], base);
   }
+  as.reverse();
+  var res = empty(n-1);
+  for (i = 0; i < n-1; i++) {
+    res[i] = longAddRem(as[i], bs[i], base);
+  }
+  return res;
 }
+300/19
+[3,20,101].map(x=>1+Math.ceil(Math.log10(x)))
+
+subdivLinear([1], [2], nums, 19)
+
+range(19).map(i=>.1 + .1/19*i).map(x=>Math.round(x*10000)/10000)
+subdivLinear([1], [2], nums, 222).map(x=>roundQuotientRemainder(x, nums.get('base')))
+subdivLinear([9], [1], nums, 4)
 
 base62
 
