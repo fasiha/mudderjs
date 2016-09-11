@@ -1,5 +1,60 @@
 # Mudder.js
 
+## Background
+
+**Needed** A function that, given two strings, returns one or more strings lexicographically between them (see [Java’s `compareTo` docs](http://docs.oracle.com/javase/8/docs/api/java/lang/String.html#compareTo-java.lang.String-) for a cogent summary of lexicographical ordering).
+
+That is, if `c = lexmid(a, b, 1)` a string, then `a ≶ c ≶ b`.
+
+Similarly, if `cs = lexmid(a, b, N)` is an `N>1`-element array of strings, `a ≶ cs[0] ≶ cs[1]  ≶ … ≶ cs[N-1] ≶ b`.
+
+**Use Case** For storing the relative rank of a document in CouchDB (a NoSQL database) without using numbers, since floating-point numbers can only be subdivided so many times before exhausting precision. That is, if two documents are numbered 1.0 and 2.0, and I keep inserting documents between them with intermediate numbers, after just 50 subdivisions, the space between adjacent documents becomes `2^-50 = 9e-16`, and documents’ numbers become indistinguishable.
+~~~js
+console.log(1 + Math.pow(2, -55) === 1);
+~~~
+Instead, store the ranks as strings, which CouchDB will happily lexicographically sort. (See [my CouchDB-specific question](http://stackoverflow.com/q/39125091/500207).)
+
+**Desiderata** I’d like to be able to insert thousands of documents between adjacent ones, so the `lexmid` function must never return strings which can’t be themselves “subdivided” further. At the same time, I’m not made of memory so shorter strings are preferred.
+
+**Prior art and innovations** [@m69’s algorithm](http://stackoverflow.com/a/38927158/500207) is perfect: you give it two alphabetic strings containing just `a-z`, and you get back a short, alphabetic string between them. Mudder.js (this library) is a generalization of the @m69 algorithm that operates on *arbitrary JavaScript strings* instead of strings containing lowercase `a-z` characters: your strings can contain, e.g., 日本語 characters or 🔥 emoji. As a small bonus, Mudder.js can give you multiple strings between two.
+
+
+## Blah
+I needed an algorithm that, given two strings, would return a third that would be lexicographically between the original two: `a < lexmid(a, b) < b` if `a < b` or, if `a > b`, then `a > lexmid(a, b) > b`. (Lexicographical ordering is the standard way of comparing and ordering strings: a cogent definition is in [documentation for Java’s `compareTo`](http://docs.oracle.com/javase/8/docs/api/java/lang/String.html#compareTo-java.lang.String-).) That was the core requirement but other desiderata included:
+
+- any output string ought to be amenable to subsequently being piped back in, possibly for an indefinite number of nestings: `a < lexmid(a, b) < lexmid(lexmid(a, b), b) < lexmid(lexmid(lexmid(a, b), b), b) < b` (assuming `a < b`). In other words, I wanted to avoid the situation where *no* string between `a` and `lexmid(a, b)` existed even when `a < lexmid(a, b) < b`.
+- I preferred shorter strings to longer strings.
+
+> The specific use case was ordering database documents by rank in CouchDB, i.e., first place, second place, etc. See my [StackOverflow question](http://stackoverflow.com/q/39125091/500207) for the low-level details, but I needed to be able to move a document ahead or behind one place at a time, insert a document between two existing ones (i.e., insert a document between second and third place, so the latter becomes fourth place), delete a document, etc. A document’s rank wasn’t any function of its contents—think chapters in a book or levels in game (rather than a scoreboard). CouchDB lacks atomic operations, so while doing all the above, I’m restricted to modifying only one document. CouchDB indexes documents by a unique stringy primary key, which it sorts lexicographically. I resolved to use this primary key as the mechanism to record a document’s rank: the primary keys would be meaningless alphanumeric strings whose lexicographic ordering dictated rank. Inserting a new document between two existing ones (or before the first, or after the last) would be as easy as picking a new string lexicographically between two existing ones. Moving a document up in rank would mean moving a document to a new primary key, lexicographically between its two new neighbors (or before/after its one neighbor if it’s in first/last place).
+
+It wasn't obvious initially, but a further desideratum was:
+
+- a built-in diagnostic to warn that *no* such string could be found, given `a`≠`b`. This takes some thinking to understand. Suppose we’ve restricted our strings to contain numbers zero through nine (or any other subset of characters). There is no string of numbers that’s lexicographically between `'1'` and `'10'`. Or `'10'` and `'100'`. Sure, we could find an intermediate string by *expanding the set of acceptable characters* (e.g., `'1' < '1-0' < '10'`, since `'-'` is ASCII 45 while `'0'` is ASCII 48). But eventually this back door disappears after you use up all printable characters, or all 128 or 256 characters in ASCII, or all codepoints of whichever Unicode plane you restrict yourself to.
+
+This dependency-free JavaScript library provides this functionality by representing a string as a sequence of arbitrary-radix digits—a number, essentially—and performing simple arithmetic on such numbers. This might sound fancy but it’s the positional number system (with base usually different than 10), long addition, and long division that you learned in primary school.
+
+(Aside: if this is the first time since your pre-adolescence revisiting long addition/division, a most hearty welcome! I ran into these as an adult once before, in digital circuits class—a CPU implements division using long division, in base-2/binary rather than base-10/decimal.)
+
+## Plan
+Since we must convert strings to “sequences of arbitrary-radix digits”, i.e., numbers, and back again, this library includes enhanced versions of
+
+- [`Number.prototype.toString`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toString) which converts JavaScript double-precision numbers to strings for bases between base-2 (binary) and base-36 (alphanumeric),
+- [`parseInt`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/parseInt) which inverts this operation by converting a string of digits in some base between 2 and 36 to a JavaScript number.
+
+Specifically, we need versions of these functions that operate on bases >36 (e.g., base-62, containing ten numbers, twenty-six uppsercase, and twenty-six lower case letters), and that are also flexible to the strings used to denote each number between 0 and the radix. (In this document, I will use “base” and “radix” interchangeably.)
+
+We will create these library functions in the next section.
+
+Once we can represent arbitrary strings as equivalent numbers, we will describe the very specific positional number system that lets us find lexicographic mid-points easily. This positional system involves mapping a given string’s numeric representation to a rational number between 0 and 1, and in this system, the lexicographic midpoint between two strings is the simple mean (average) between their two numbers.
+
+This sounds fancy, but again, it’s quite pedestrian. We’ll implement long addition and long division (the two steps required to calculate the mean of two numbers) in a subsequent section.
+
+Finally, with these preliminaries out of the way, we’ll implement the functions to help us paper over all this machinery and that just give us strings lexicographically between two other strings.
+
+## Prior art
+
+## Emoji numbers, or
+
 ## Of numbers and digits
 Let us begin by improving JavaScript’s built-in
 
@@ -410,6 +465,18 @@ var digits2num = (digits, smap) => {
 digits2num([ 1, 25 ], az);
 
 
+lexdist([5], [1])
+function longSub(big, small, base) {
+  var dist = lexdist(big, small);
+  if (dist < 0) {
+    [big, small] = [ small, big ];
+  } else if (dist === 0) {
+    return [ 0 ];
+  }
+}
+
+
+
 function longAdd(a, b, base) {
   // sum starts out as copy of longer
   const sum = a.length < b.length ? b.slice() : a.slice();
@@ -435,10 +502,31 @@ function longDiv(numeratorArr, den, base) {
     let newNum = curr + prev.rem * base;
     return {
       div : prev.div.concat(Math.floor(newNum / den)),
-      rem : newNum % den
+      rem : newNum % den,
+      den
     };
-  }, {div : [], rem : 0});
+  }, {div : [], rem : 0, den});
 }
+
+longDiv([5, 5], 12, 10)
+longAdd([0,4], [0,4], 10)
+.55/12
+.55/12*2
+(4 + 7/12)*1e-2
+longAdd([0,8,0], [0,8,0], 16)
+longDiv(longAdd([0,8,0], [0,8,0], 16).sum, 30, 16)
+26*2
+0xf1a/30
+0x080
+26/30
+hex = arrToSymbolMap('0123456789ABCDEF'.split(''));
+num2digits(30,hex.get('base'))
+num2digits(26,hex.get('base'))
+
+.1/18
+18*5
+(30*8).toString(16)
+longDiv([1], 20, 10)
 
 function longMean(a, b, base) {
   const {sum, overflow} = longAdd(b, a, base);
@@ -576,7 +664,10 @@ doStrings('asd', 'asdb', az,true);
 
 string2digits('wqe', az)
 
-
+function subdiv(s1, s2, smap, n){
+  var d1 = string2digits(s1, smap);
+  var d2 = string2digits(s2, smap);
+}
 
 function doLong(s1, s2, smap, approximate) {
   var d1, d2;
@@ -619,6 +710,8 @@ function doLong(s1, s2, smap, approximate) {
   return digits2string(mean, smap);
 }
 var nums = arrToSymbolMap('0123456789'.split(''));
+var bin = arrToSymbolMap('01'.split(''));
+var base36 = arrToSymbolMap('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''));
 doStrings('95', '9501', nums,true)
 doLong('89', '91', nums)
 doLong('89', '91', nums, true)
@@ -626,6 +719,48 @@ doLong('95', null, nums,!true)
 doLong('b', null, az)
 doStrings('b', null, az)
 doLong('0','0',nums)
+
+console.log(Array.from(Array(1000)).reduce((prev,curr)=>doLong('A', prev, base62, true), 'y').length)
+doLong('b','y', base62)
+
+
+function subdiv(a, b, smap, n) {
+  var sols = [a , b];
+  for (let i=0; i<n;i++){
+    var tmp = [];
+    for (let j=0;j<sols.length-1;j++) {
+      tmp.push(doLong(sols[j], sols[j+1], smap, true));
+    }
+    sols = sols.concat(tmp)
+    sols.sort();
+  }
+  return sols;
+}
+
+var tern = arrToSymbolMap('012'.split(''));
+
+subdiv('1','11',tern, 9)
+doLong('1','1000002',tern,true)
+([1,2,3].concat([10,20,30])).sort()
+
+function range0f(n, f) { return Array.from(Array(n), (_, i) => f(i)); }
+function range(n) { return Array.from(Array(n), (_, i) => i); }
+function empty(n) { return Array.from(Array(n)); }
+
+function subdivLinear(a,b,smap, n) {
+  if (lexdist(a, b) > 0) {
+    [a, b] = [b, a];
+  }
+  var aN = longDiv(a, n, smap.get('base'));
+  var bN = longDiv(b, n, smap.get('base'));
+  var as = empty(n-1);
+  var bs = empty(n-1);
+  for (var i = 1; i<= N-1; i++) {
+    as[i]
+  }
+}
+
+base62
 
 var binary = arrToSymbolMap("01".split(''));
 doStrings('101', '11', binary,true)
