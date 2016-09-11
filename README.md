@@ -422,6 +422,16 @@ The map includes a key `'array'` with value of the initial array to serve as the
 
 With this `Map` representing the symbol table, and helper functions `replaceAll` and `symbolMapToRegexp`…
 ~~~js
+function lexdist(a,b) {
+  const minlen = Math.min(a.length, b.length);
+  for (let i = 0; i < minlen; i++){
+    if (a[i] !== b[i]) {
+      return a[i] - b[i];
+    }
+  }
+  return a.length - b.length;
+}
+
 var mealMap = arrToSymbolMap('🍌🍳☕️,🍱,🍣🍮'.split(','));
 
 var num2numDigitsInBase = (num, b) =>
@@ -465,7 +475,6 @@ var digits2num = (digits, smap) => {
 digits2num([ 1, 25 ], az);
 
 
-lexdist([5], [1])
 function longSub(big, small, base) {
   var dist = lexdist(big, small);
   if (dist < 0) {
@@ -508,26 +517,6 @@ function longDiv(numeratorArr, den, base) {
   }, {div : [], rem : 0, den});
 }
 
-longDiv([5, 5], 12, 10)
-longAdd([0,4], [0,4], 10)
-.55/12
-.55/12*2
-(4 + 7/12)*1e-2
-longAdd([0,8,0], [0,8,0], 16)
-longDiv(longAdd([0,8,0], [0,8,0], 16).sum, 30, 16)
-26*2
-0xf1a/30
-0x080
-26/30
-hex = arrToSymbolMap('0123456789ABCDEF'.split(''));
-num2digits(30,hex.get('base'))
-num2digits(26,hex.get('base'))
-
-.1/18
-18*5
-(30*8).toString(16)
-longDiv([1], 20, 10)
-
 function longMean(a, b, base) {
   const {sum, overflow} = longAdd(b, a, base);
 
@@ -543,16 +532,6 @@ function longMean(a, b, base) {
 }
 
 
-
-function lexdist(a,b) {
-  const minlen = Math.min(a.length, b.length);
-  for (let i = 0; i < minlen; i++){
-    if (a[i] !== b[i]) {
-      return a[i] - b[i];
-    }
-  }
-  return a.length - b.length;
-}
 
 var Big = require('big.js');
 digits2big = (digits, base) =>
@@ -664,10 +643,6 @@ doStrings('asd', 'asdb', az,true);
 
 string2digits('wqe', az)
 
-function subdiv(s1, s2, smap, n){
-  var d1 = string2digits(s1, smap);
-  var d2 = string2digits(s2, smap);
-}
 
 function doLong(s1, s2, smap, approximate) {
   var d1, d2;
@@ -724,7 +699,7 @@ console.log(Array.from(Array(1000)).reduce((prev,curr)=>doLong('A', prev, base62
 doLong('b','y', base62)
 
 
-function subdiv(a, b, smap, n) {
+function subdivPow2(a, b, smap, n) {
   var sols = [a , b];
   for (let i=0; i<n;i++){
     var tmp = [];
@@ -739,7 +714,7 @@ function subdiv(a, b, smap, n) {
 
 var tern = arrToSymbolMap('012'.split(''));
 
-subdiv('1','11',tern, 9)
+subdivPow2('1','11',tern, 9)
 doLong('1','1000002',tern,true)
 ([1,2,3].concat([10,20,30])).sort()
 
@@ -806,14 +781,9 @@ function subdivLinear(a,b,smap, n) {
 subdivLinear([1], [2], nums, 19)
 
 range(19).map(i=>.1 + .1/19*i).map(x=>Math.round(x*10000)/10000)
-subdivLinear([1], [2], nums, 222).map(x=>roundQuotientRemainder(x, nums.get('base')))
+subdivLinear([1], [2], nums, 19).map(x=>roundQuotientRemainder(x, nums.get('base')))
 subdivLinear([9], [1], nums, 4)
 
-base62
-
-var binary = arrToSymbolMap("01".split(''));
-doStrings('101', '11', binary,true)
-doLong('10101', '11', binary,true)
 
 
 // A symbol map might contain an 'escape hatch' symbol, i.e., one that is only
@@ -830,11 +800,6 @@ doLong('10101', '11', binary,true)
 ~~~
 
 
-## Decimal?
-~~~js
-
-
-~~~
 
 ##References
 
