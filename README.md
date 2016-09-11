@@ -60,6 +60,11 @@ These are possible because Mudder.js converts strings to non-decimal-radix (non-
 
 Because numbase made it look so fun, as a bonus, Mudder.js can convert regular JavaScript integers to strings. You may specify a multi-character string for each digit. Therefore, should the gastronome in you invent a ternary (radix-3) numerical system based on today’s meals, with 0=🍌🍳☕️, 1=🍱, and 2=🍣🍮, Mudder.js can help you rewrite (42)<sub>10</sub>, that is, 42 in our everyday base 10, as (🍱🍱🍣🍮🍌🍳☕️)<sub>breakfast, lunch, and dinner</sub>.
 
+**This document** This document is a Markdown file that I edit in Atom. It contains code blocks that I can run in Node.js via Hydrogen, an Atom plugin that talks to ijs using the Jupyter (formerly IPython Notebook) protocol, which in turn talks to Node. I have custom Atom macros that insert the results of evaluating code blocks in this Markdown file. I don’t keep a terminal window open to Node: all development, including scratch work and test snippets, happens in this Markdown file and goes through Hydrogen.
+
+In this way, this document is a primitive (or futuristic?) riff on literate programming, the approach discovered and celebrated by Donald Knuth. You can read the Markdown on GitHub. I can run edit and evaluate it in Atom. I’ll soon write more Atom macros that pipe out some code blocks to their own file, thereby creating the files needed by the modern JavaScript/ES2015 ecosystem (`package.json`, Rollup and Babel configs, the actual JavaScript code files), which you can then download and use in your own projects.
+
+(I’m also planning on converting this Markdown file to a live-coding-enabled webapp, where you can read the exposition like on GitHub but the code blocks are fully editable, and the code runs in your browser’s JavaScript runtime.)
 
 ## Blah
 I needed an algorithm that, given two strings, would return a third that would be lexicographically between the original two: `a < lexmid(a, b) < b` if `a < b` or, if `a > b`, then `a > lexmid(a, b) > b`. (Lexicographical ordering is the standard way of comparing and ordering strings: a cogent definition is in [documentation for Java’s `compareTo`](http://docs.oracle.com/javase/8/docs/api/java/lang/String.html#compareTo-java.lang.String-).) That was the core requirement but other desiderata included:
