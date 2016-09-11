@@ -8,15 +8,57 @@ That is, if `c = lexmid(a, b, 1)` a string, then `a ≶ c ≶ b`.
 
 Similarly, if `cs = lexmid(a, b, N)` is an `N>1`-element array of strings, `a ≶ cs[0] ≶ cs[1]  ≶ … ≶ cs[N-1] ≶ b`.
 
-**Use Case** For storing the relative rank of a document in CouchDB (a NoSQL database) without using numbers, since floating-point numbers can only be subdivided so many times before exhausting precision. That is, if two documents are numbered 1.0 and 2.0, and I keep inserting documents between them with intermediate numbers, after just 50 subdivisions, the space between adjacent documents becomes `2^-50 = 9e-16`, and documents’ numbers become indistinguishable.
+**Use Case** For storing the relative rank of a document in CouchDB (a NoSQL database) *without* using floating-point numbers, since floats can only be subdivided so many times before exhausting precision. E.g., if two documents are numbered 1.0 and 2.0, and I keep inserting documents between them with intermediate numbers, after just 50 subdivisions, the space between adjacent documents becomes `2^-50 = 9e-16`, and documents’ numbers become indistinguishable.
 ~~~js
 console.log(1 + Math.pow(2, -55) === 1);
 ~~~
 Instead, store the ranks as strings, which CouchDB will happily lexicographically sort. (See [my CouchDB-specific question](http://stackoverflow.com/q/39125091/500207).)
 
-**Desiderata** I’d like to be able to insert thousands of documents between adjacent ones, so the `lexmid` function must never return strings which can’t be themselves “subdivided” further. At the same time, I’m not made of memory so shorter strings are preferred.
+**Desiderata** I’d like to be able to insert thousands of documents between adjacent ones, so `lexmid()` must never return strings which can’t be themselves “subdivided” further. At the same time, I’m not made of memory so shorter strings are preferred.
 
-**Prior art and innovations** [@m69’s algorithm](http://stackoverflow.com/a/38927158/500207) is perfect: you give it two alphabetic strings containing just `a-z`, and you get back a short, alphabetic string between them. Mudder.js (this library) is a generalization of the @m69 algorithm that operates on *arbitrary JavaScript strings* instead of strings containing lowercase `a-z` characters: your strings can contain, e.g., 日本語 characters or 🔥 emoji. As a small bonus, Mudder.js can give you multiple strings between two.
+**Prior art** [@m69’s algorithm](http://stackoverflow.com/a/38927158/500207) is perfect: you give it two alphabetic strings containing just `a-z`, and you get back a short alphabetic string that’s “roughly half-way” between them.
+
+In order to get `N` evenly-spaced strings ex nihilo, [@m69’s clever suggestion](http://stackoverflow.com/questions/38923376/return-a-new-string-that-sorts-between-two-given-strings/38927158#comment65638725_38927158) was, assuming `B^(m-1) < N < B^m` for base `B` (or just the number of characters available), to evenly distribute `N` integers from, say, 2 to `B^m - 2` and write them in radix-`B`. This works fantastically!:
+~~~js
+var N = 50; // How many strings to generate. Governs how long the strings are.
+var B = 36; // Radix, or how many characters to use
+
+// Left and right margins
+var start = 2;
+var places = Math.ceil(Math.log(N) / Math.log(B)); // max length for N strings
+var end = Math.pow(B, places) - 2;
+
+// N integers between `start` and `end`
+var ns = Array.from(Array(N), (_, i) => start + Math.round(i / N * end));
+
+// JavaScript's toString can't pad numbers to a fixed length, so:
+var leftpad = (str, desiredLen, padChar) =>
+    padChar.repeat(desiredLen - str.length) + str;
+
+var strings = ns.map(n => leftpad(n.toString(B), places, '0'));
+console.log(strings);
+~~~
+
+A desire to use more than twenty-six (or thirty-six) characters led to [a discussion about base-62](http://stackoverflow.com/a/2557508/500207), where @DanielVassallo showed a custom `toString`, since JavaScript’s `Number.prototype.toString` (used above, for base-26) only supports radixes ≤36. [numbase](https://www.npmjs.com/package/numbase) supports arbitrary-radix interconversion, and, how delightful, lets you specify the universe of characters to use:
+```js
+// From https://www.npmjs.com/package/numbase#examples
+// Setup an instance with custom base string
+base = new NumBase('中国上海市徐汇区');
+// Encode an integer, use default radix 8
+base.encode(19901230); // returns '国国海区上徐市徐汇'
+// Decode a string, with default radix 8
+base.decode('国国海区上徐市徐汇'); // returns '19901230'
+```
+
+Finally, [@Eclipse’s observation](http://stackoverflow.com/a/2510928/500207) really elucidated the connection between strings and numbers, thereby explaining what mathematical vein @m69’s algorithm was ad hocly tapping. @Eclipse suggested converting a string to a number and then *treating the result as a fraction between 0 and 1*. That is, just place a radix-point before the first digit (in the given base) and perform arithmetic on it.
+
+**Innovations** Mudder.js (this library) is a generalization of @m69’s algorithm that operates on *arbitrary JavaScript strings* instead of strings containing lowercase `a-z` characters: your strings can contain, e.g., 日本語 characters or 🔥 emoji. (Like @m69’s algorithm, you do have to specify upfront the universe of stringy symbols to operate on.)
+
+You can ask Mudder.js for `N ≥ 1` strings that sort between two input strings. (You could use @m69’s original algorithm recursively on its outputs and get `2^m ≥ N` strings, then just take `N` of them.)
+
+These are possible because Mudder.js converts strings to non-decimal-radix (non-base-10), arbitrary-precision fractional numbers between 0 and 1. Having obtained numeric representations of strings, it’s straightforward to compute their average `(a + b) / 2`, or `N` intermediate points `a + (b - a) / N * i` for `i` going from 1 to `N - 1`, using the long addition and long division you learned in primary school. (By avoiding native floating-point, Mudder.js can handle arbitrarily-long strings, and generalizes @Eclipse’s suggestion.)
+
+Because numbase made it look so fun, as a bonus, Mudder.js can convert regular JavaScript integers to strings. You may specify a multi-character string for each digit. Therefore, should the gastronome in you invent a ternary (radix-3) numerical system based on today’s meals, with 0=🍌🍳☕️, 1=🍱, and 2=🍣🍮, Mudder.js can help you rewrite (42)<sub>10</sub>, that is, 42 in our everyday base 10, as (🍱🍱🍣🍮🍌🍳☕️)<sub>breakfast, lunch, and dinner</sub>.
 
 
 ## Blah
