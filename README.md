@@ -52,47 +52,35 @@ base.decode('国国海区上徐市徐汇'); // returns '19901230'
 
 Finally, [@Eclipse’s observation](http://stackoverflow.com/a/2510928/500207) really elucidated the connection between strings and numbers, thereby explaining what mathematical vein @m69’s algorithm was ad hocly tapping. @Eclipse suggested converting a string to a number and then *treating the result as a fraction between 0 and 1*. That is, just place a radix-point before the first digit (in the given base) and perform arithmetic on it.
 
-**Innovations** Mudder.js (this library) is a generalization of @m69’s algorithm that operates on *arbitrary JavaScript strings* instead of strings containing lowercase `a-z` characters: your strings can contain, e.g., 日本語 characters or 🔥 emoji. (Like @m69’s algorithm, you do have to specify upfront the universe of stringy symbols to operate on.)
+**Innovations** Mudder.js (this dependency-free JavaScript/ES2015 library) is a generalization of @m69’s algorithm that operates on *arbitrary JavaScript strings* instead of strings containing lowercase `a-z` characters: your strings can contain, e.g., 日本語 characters or 🔥 emoji. (Like @m69’s algorithm, you do have to specify upfront the universe of stringy symbols to operate on.)
 
 You can ask Mudder.js for `N ≥ 1` strings that sort between two input strings. (You could use @m69’s original algorithm recursively on its outputs and get `2^m ≥ N` strings, then just take `N` of them.)
 
-These are possible because Mudder.js converts strings to non-decimal-radix (non-base-10), arbitrary-precision fractional numbers between 0 and 1. Having obtained numeric representations of strings, it’s straightforward to compute their average `(a + b) / 2`, or `N` intermediate points `a + (b - a) / N * i` for `i` going from 1 to `N - 1`, using the long addition and long division you learned in primary school. (By avoiding native floating-point, Mudder.js can handle arbitrarily-long strings, and generalizes @Eclipse’s suggestion.)
+These are possible because Mudder.js converts strings to non-decimal-radix (non-base-10), arbitrary-precision fractional numbers between 0 and 1. Having obtained numeric representations of strings, it’s straightforward to compute their average, or midpoint, `(a + b) / 2`, or even `N` intermediate points `a + (b - a) / N * i` for `i` going from 1 to `N - 1`, using the long addition and long division you learned in primary school. (By avoiding native floating-point, Mudder.js can handle arbitrarily-long strings, and generalizes @Eclipse’s suggestion.)
 
 Because numbase made it look so fun, as a bonus, Mudder.js can convert regular JavaScript integers to strings. You may specify a multi-character string for each digit. Therefore, should the gastronome in you invent a ternary (radix-3) numerical system based on today’s meals, with 0=🍌🍳☕️, 1=🍱, and 2=🍣🍮, Mudder.js can help you rewrite (42)<sub>10</sub>, that is, 42 in our everyday base 10, as (🍱🍱🍣🍮🍌🍳☕️)<sub>breakfast, lunch, and dinner</sub>.
 
 **This document** This document is a Markdown file that I edit in Atom. It contains code blocks that I can run in Node.js via Hydrogen, an Atom plugin that talks to ijs using the Jupyter (formerly IPython Notebook) protocol, which in turn talks to Node. I don’t keep a terminal window open to Node: all development, including scratch work and test snippets, happens in this Markdown file and goes through Hydrogen.
 
-In this way, this document is a primitive (or futuristic?) riff on literate programming, the approach discovered and celebrated by Donald Knuth. You can read the Markdown on GitHub. I can run edit and evaluate it in Atom.
+This workflow allowed me to make this document into a heavily-edited diary of the process of writing the library. While this file contains the final code as written to `.js` files, I also explain the experimentation that led to design decisions, the alternatives to those decisions, opportunities for improvements, references, and numerous asides.
 
-I will have custom Atom macros that insert the results of evaluating code blocks in this Markdown file. 
+In this way, this document is a primitive (or futuristic?) riff on literate programming, the approach discovered and celebrated by Donald Knuth.
+
+This Markdown document can be read on GitHub or npmjs. It can be edited and evaluated in Atom.
+
+I will have custom Atom macros that insert the results of evaluating code blocks right into this file.
 
 I’ll soon write more Atom macros that pipe out some code blocks to their own file, thereby creating the files needed by the modern JavaScript/ES2015 ecosystem (`package.json`, Rollup and Babel configs, the actual JavaScript code files), which you can then download and use in your own projects.
 
-(I’m also planning on converting this Markdown file to a live-coding-enabled webapp, where you can read the exposition like on GitHub but the code blocks are fully editable, and the code runs in your browser’s JavaScript runtime.)
-
-## Blah
-I needed an algorithm that, given two strings, would return a third that would be lexicographically between the original two: `a < lexmid(a, b) < b` if `a < b` or, if `a > b`, then `a > lexmid(a, b) > b`. (Lexicographical ordering is the standard way of comparing and ordering strings: a cogent definition is in [documentation for Java’s `compareTo`](http://docs.oracle.com/javase/8/docs/api/java/lang/String.html#compareTo-java.lang.String-).) That was the core requirement but other desiderata included:
-
-- any output string ought to be amenable to subsequently being piped back in, possibly for an indefinite number of nestings: `a < lexmid(a, b) < lexmid(lexmid(a, b), b) < lexmid(lexmid(lexmid(a, b), b), b) < b` (assuming `a < b`). In other words, I wanted to avoid the situation where *no* string between `a` and `lexmid(a, b)` existed even when `a < lexmid(a, b) < b`.
-- I preferred shorter strings to longer strings.
-
-> The specific use case was ordering database documents by rank in CouchDB, i.e., first place, second place, etc. See my [StackOverflow question](http://stackoverflow.com/q/39125091/500207) for the low-level details, but I needed to be able to move a document ahead or behind one place at a time, insert a document between two existing ones (i.e., insert a document between second and third place, so the latter becomes fourth place), delete a document, etc. A document’s rank wasn’t any function of its contents—think chapters in a book or levels in game (rather than a scoreboard). CouchDB lacks atomic operations, so while doing all the above, I’m restricted to modifying only one document. CouchDB indexes documents by a unique stringy primary key, which it sorts lexicographically. I resolved to use this primary key as the mechanism to record a document’s rank: the primary keys would be meaningless alphanumeric strings whose lexicographic ordering dictated rank. Inserting a new document between two existing ones (or before the first, or after the last) would be as easy as picking a new string lexicographically between two existing ones. Moving a document up in rank would mean moving a document to a new primary key, lexicographically between its two new neighbors (or before/after its one neighbor if it’s in first/last place).
-
-It wasn't obvious initially, but a further desideratum was:
-
-- a built-in diagnostic to warn that *no* such string could be found, given `a`≠`b`. This takes some thinking to understand. Suppose we’ve restricted our strings to contain numbers zero through nine (or any other subset of characters). There is no string of numbers that’s lexicographically between `'1'` and `'10'`. Or `'10'` and `'100'`. Sure, we could find an intermediate string by *expanding the set of acceptable characters* (e.g., `'1' < '1-0' < '10'`, since `'-'` is ASCII 45 while `'0'` is ASCII 48). But eventually this back door disappears after you use up all printable characters, or all 128 or 256 characters in ASCII, or all codepoints of whichever Unicode plane you restrict yourself to.
-
-This dependency-free JavaScript library provides this functionality by representing a string as a sequence of arbitrary-radix digits—a number, essentially—and performing simple arithmetic on such numbers. This might sound fancy but it’s the positional number system (with base usually different than 10), long addition, and long division that you learned in primary school.
-
-(Aside: if this is the first time since your pre-adolescence revisiting long addition/division, a most hearty welcome! I ran into these as an adult once before, in digital circuits class—a CPU implements division using long division, in base-2/binary rather than base-10/decimal.)
+I’m also planning on writing a small library that converts this Markdown file to a live-coding-enabled webapp, where you can read the exposition, like on GitHub, but where the code blocks are fully editable and real-time-executable in the browser.
 
 ## Plan
-Since we must convert strings to “sequences of arbitrary-radix digits”, i.e., numbers, and back again, this library includes enhanced versions of
+Since we must convert strings to arbitrary-radix digits, and back again, this library includes enhanced versions of
 
-- [`Number.prototype.toString`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toString) which converts JavaScript double-precision numbers to strings for bases between base-2 (binary) and base-36 (alphanumeric),
+- [`Number.prototype.toString`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toString) which converts JavaScript integers to strings for bases between base-2 (binary) and base-36 (alphanumeric),
 - [`parseInt`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/parseInt) which inverts this operation by converting a string of digits in some base between 2 and 36 to a JavaScript number.
 
-Specifically, we need versions of these functions that operate on bases >36 (e.g., base-62, containing ten numbers, twenty-six uppsercase, and twenty-six lower case letters), and that are also flexible to the strings used to denote each number between 0 and the radix. (In this document, I will use “base” and “radix” interchangeably.)
+Specifically, we need versions of these functions that operate on bases >36, and that let the user specify the strings used to denote each digit in the arbitrary-radix numerical system. (In this document, I will use “base” and “radix” interchangeably.)
 
 We will create these library functions in the next section.
 
