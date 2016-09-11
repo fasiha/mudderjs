@@ -8,17 +8,25 @@ That is, if `c = lexmid(a, b, 1)` a string, then `a ≶ c ≶ b`.
 
 Similarly, if `cs = lexmid(a, b, N)` is an `N>1`-element array of strings, `a ≶ cs[0] ≶ cs[1]  ≶ … ≶ cs[N-1] ≶ b`.
 
-**Use Case** For storing the relative rank of a document in CouchDB (a NoSQL database) *without* using floating-point numbers, since floats can only be subdivided so many times before exhausting precision. E.g., if two documents are numbered 1.0 and 2.0, and I keep inserting documents between them with intermediate numbers, after just 50 subdivisions, the space between adjacent documents becomes `2^-50 = 9e-16`, and documents’ numbers become indistinguishable.
+**Use Case** For storing the relative rank of a document in CouchDB (a NoSQL database) *without* using floating-point numbers, since floats can only be subdivided so many times before exhausting precision. E.g., if two documents are numbered 1.0 and 2.0, and I keep inserting documents between them, assigning each an intermediate number, after just 50 subdivisions, the space between adjacent documents becomes `2^-50 = 9e-16`, and documents’ numbers become indistinguishable.
 ~~~js
 console.log(1 + Math.pow(2, -55) === 1);
+console.log("yo");
+
+console.log("hhi");
+~~~
+
+~~~js
+console.log('sup');
+console.log('zzz');
 ~~~
 Instead, store the ranks as strings, which CouchDB will happily lexicographically sort. (See [my CouchDB-specific question](http://stackoverflow.com/q/39125091/500207).)
 
-**Desiderata** I’d like to be able to insert thousands of documents between adjacent ones, so `lexmid()` must never return strings which can’t be themselves “subdivided” further. At the same time, I’m not made of memory so shorter strings are preferred.
+**Desiderata** I’d like to be able to insert thousands of documents between adjacent ones, so `lexmid()` must never return strings which can’t be themselves “subdivided” further. At the same time, I’m not made of memory, so shorter strings are preferred.
 
 **Prior art** [@m69’s algorithm](http://stackoverflow.com/a/38927158/500207) is perfect: you give it two alphabetic strings containing just `a-z`, and you get back a short alphabetic string that’s “roughly half-way” between them.
 
-In order to get `N` evenly-spaced strings ex nihilo, [@m69’s clever suggestion](http://stackoverflow.com/questions/38923376/return-a-new-string-that-sorts-between-two-given-strings/38927158#comment65638725_38927158) was, assuming `B^(m-1) < N < B^m` for base `B` (or just the number of characters available), to evenly distribute `N` integers from, say, 2 to `B^m - 2` and write them in radix-`B`. This works fantastically!:
+In order to get `N` evenly-spaced strings ex nihilo, [@m69’s clever suggestion](http://stackoverflow.com/questions/38923376/return-a-new-string-that-sorts-between-two-given-strings/38927158#comment65638725_38927158) was, assuming `B^(m-1) < N < B^m` where base `B`=number of characters (26 for alphabetic, 36 for alphanumeric), to evenly distribute `N` integers from, say, 2 to `B^m - 2` and write them in radix-`B`. This works! Here’s a quick example using base-36:
 ~~~js
 var N = 50; // How many strings to generate. Governs how long the strings are.
 var B = 36; // Radix, or how many characters to use
