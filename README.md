@@ -11,14 +11,7 @@ Similarly, if `cs = lexmid(a, b, N)` is an `N>1`-element array of strings, `a �
 **Use Case** For storing the relative rank of a document in CouchDB (a NoSQL database) *without* using floating-point numbers, since floats can only be subdivided so many times before exhausting precision. E.g., if two documents are numbered 1.0 and 2.0, and I keep inserting documents between them, assigning each an intermediate number, after just 50 subdivisions, the space between adjacent documents becomes `2^-50 = 9e-16`, and documents’ numbers become indistinguishable.
 ~~~js
 console.log(1 + Math.pow(2, -55) === 1);
-console.log("yo");
-
-console.log("hhi");
-~~~
-
-~~~js
-console.log('sup');
-console.log('zzz');
+// > true
 ~~~
 Instead, store the ranks as strings, which CouchDB will happily lexicographically sort. (See [my CouchDB-specific question](http://stackoverflow.com/q/39125091/500207).)
 
@@ -26,10 +19,10 @@ Instead, store the ranks as strings, which CouchDB will happily lexicographicall
 
 **Prior art** [@m69’s algorithm](http://stackoverflow.com/a/38927158/500207) is perfect: you give it two alphabetic strings containing just `a-z`, and you get back a short alphabetic string that’s “roughly half-way” between them.
 
-In order to get `N` evenly-spaced strings ex nihilo, [@m69’s clever suggestion](http://stackoverflow.com/questions/38923376/return-a-new-string-that-sorts-between-two-given-strings/38927158#comment65638725_38927158) was, assuming `B^(m-1) < N < B^m` where base `B`=number of characters (26 for alphabetic, 36 for alphanumeric), to evenly distribute `N` integers from, say, 2 to `B^m - 2` and write them in radix-`B`. This works! Here’s a quick example using base-36:
+In order to get `N` evenly-spaced strings ex nihilo, [@m69’s clever suggestion](http://stackoverflow.com/questions/38923376/return-a-new-string-that-sorts-between-two-given-strings/38927158#comment65638725_38927158) was, assuming `B^(m-1) < N < B^m` where base `B`=number of characters (26 for alphabetic, 36 for alphanumeric), to evenly distribute `N` integers from, say, 2 to `B^m - 2` and write them in radix-`B`. This works! Here’s a quick example, covering base-16 (hexadecimal) with 25 strings:
 ~~~js
-var N = 50; // How many strings to generate. Governs how long the strings are.
-var B = 36; // Radix, or how many characters to use
+var N = 25; // How many strings to generate. Governs how long the strings are.
+var B = 16; // Radix, or how many characters to use
 
 // Left and right margins
 var start = 2;
@@ -45,11 +38,36 @@ var leftpad = (str, desiredLen, padChar) =>
 
 var strings = ns.map(n => leftpad(n.toString(B), places, '0'));
 console.log(strings);
+// > [ '02',
+// >  '0c',
+// >  '16',
+// >  '20',
+// >  '2b',
+// >  '35',
+// >  '3f',
+// >  '49',
+// >  '53',
+// >  '5d',
+// >  '68',
+// >  '72',
+// >  '7c',
+// >  '86',
+// >  '90',
+// >  '9a',
+// >  'a5',
+// >  'af',
+// >  'b9',
+// >  'c3',
+// >  'cd',
+// >  'd7',
+// >  'e2',
+// >  'ec',
+// >  'f6' ]
 ~~~
 
 A desire to use more than twenty-six (or thirty-six) characters led to [a discussion about base-62](http://stackoverflow.com/a/2557508/500207), where @DanielVassallo showed a custom `toString`, since JavaScript’s `Number.prototype.toString` (used above, for base-26) only supports radixes ≤36. [numbase](https://www.npmjs.com/package/numbase) supports arbitrary-radix interconversion, and, how delightful, lets you specify the universe of characters to use:
 ```js
-// From https://www.npmjs.com/package/numbase#examples
+// From https://www.npmjs.com/package/numbase#examples // no-hydrogen
 // Setup an instance with custom base string
 base = new NumBase('中国上海市徐汇区');
 // Encode an integer, use default radix 8
@@ -846,7 +864,9 @@ subdivLinear([9], [1], nums, 4)
 
 ~~~
 
-
+~~~js
+console.log('whee');
+~~~
 
 ##References
 
