@@ -2,27 +2,28 @@
 
 ## Background
 
-**Needed** A function that, given two strings, returns one or more strings lexicographically between them (see [Java’s `compareTo` docs](http://docs.oracle.com/javase/8/docs/api/java/lang/String.html#compareTo-java.lang.String-) for a cogent summary of lexicographical ordering).
+**Requirement** A function that, given two strings, returns one or more strings lexicographically between them (see [Java’s `compareTo` docs](http://docs.oracle.com/javase/8/docs/api/java/lang/String.html#compareTo-java.lang.String-) for a cogent summary of lexicographical ordering).
 
 That is, if `c = lexmid(a, b, 1)` a string, then `a ≶ c ≶ b`.
 
 Similarly, if `cs = lexmid(a, b, N)` is an `N>1`-element array of strings, `a ≶ cs[0] ≶ cs[1]  ≶ … ≶ cs[N-1] ≶ b`.
 
-**Use Case** For storing the relative rank of a document in CouchDB (a NoSQL database) *without* using floating-point numbers, since floats can only be subdivided so many times before exhausting precision. E.g., if two documents are numbered 1.0 and 2.0, and I keep inserting documents between them, assigning each an intermediate number, after just 50 subdivisions, the space between adjacent documents becomes `2^-50 = 9e-16`, and documents’ numbers become indistinguishable.
-~~~js
-console.log(1 + Math.pow(2, -55) === 1);
-// > true
-~~~
-Instead, store the ranks as strings, which CouchDB will happily lexicographically sort. (See [my CouchDB-specific question](http://stackoverflow.com/q/39125091/500207).)
+**Use Case** Reliably ordering (or ranking) entries in a database. Such entries may be reordered (shuffled). New entries might be inserted between existing ones.
 
-**Desiderata** I’d like to be able to insert thousands of documents between adjacent ones, so `lexmid()` must never return strings which can’t be themselves “subdivided” further. At the same time, I’m not made of memory, so shorter strings are preferred.
+[My StackOverflow question](http://stackoverflow.com/q/39125091/500207) links to six other questions about this topic, all lacking convincing solutions. Some try to encode order using floating-point numbers, but a pair of numbers can only be subdivided so many times before losing precision. One “fix” to this is to renormalize all entries’ spacings periodically, but some NoSQL databases lack atomic operations and cannot modify multiple entries in one go. Such databases would have to stop accepting new writes, update each entry with a normalized rank number, then resume accepting writes.
+
+Since many databases are happy to sort entries using stringy fields, let’s just use strings instead of numbers. This library aids in the creation of new strings that lexicographically sort between two other strings.
+
+**Desiderata** I’d like to be able to insert thousands of documents between adjacent ones, so `lexmid()` must never return strings which can’t be “subdivided” further. But memory isn’t free, so shorter strings are preferred.
 
 **Prior art** [@m69’s algorithm](http://stackoverflow.com/a/38927158/500207) is perfect: you give it two alphabetic strings containing just `a-z`, and you get back a short alphabetic string that’s “roughly half-way” between them.
 
-In order to get `N` evenly-spaced strings ex nihilo, [@m69’s clever suggestion](http://stackoverflow.com/questions/38923376/return-a-new-string-that-sorts-between-two-given-strings/38927158#comment65638725_38927158) was, assuming `B^(m-1) < N < B^m` where base `B`=number of characters (26 for alphabetic, 36 for alphanumeric), to evenly distribute `N` integers from, say, 2 to `B^m - 2` and write them in radix-`B`. This works! Here’s a quick example, covering base-16 (hexadecimal) with 25 strings:
+I asked how to get `N` evenly-spaced strings ex nihilo, i.e., not between any two strings. [@m69’s clever suggestion](http://stackoverflow.com/questions/38923376/return-a-new-string-that-sorts-between-two-given-strings/38927158#comment65638725_38927158) was, for strings allowed to use `B` distinct characters, and `B^(m-1) < N < B^m`, evenly distribute `N` integers from 2 to `B^m - 2` (or some suitable start and end), and write them as radix-`B`.
+
+This works! Here’s a quick example, generating 25 hexadcimal (`B=16`) strings:
 ~~~js
 var N = 25; // How many strings to generate. Governs how long the strings are.
-var B = 16; // Radix, or how many characters to use
+var B = 16; // Radix, or how many characters to use, < N
 
 // Left and right margins
 var start = 2;
@@ -65,7 +66,9 @@ console.log(strings);
 // >  'f6' ]
 ~~~
 
-A desire to use more than twenty-six (or thirty-six) characters led to [a discussion about base-62](http://stackoverflow.com/a/2557508/500207), where @DanielVassallo showed a custom `toString`, since JavaScript’s `Number.prototype.toString` (used above, for base-26) only supports radixes ≤36. [numbase](https://www.npmjs.com/package/numbase) supports arbitrary-radix interconversion, and, how delightful, lets you specify the universe of characters to use:
+This uses JavaScript’s `Number.prototype.toString` which works for bases up to `B=36`, but no more. A desire to use more than thirty-six characters led to [a discussion about representing integers in base-62](http://stackoverflow.com/a/2557508/500207), where @DanielVassallo showed a custom `toString`.
+
+Meanwhile, [numbase](https://www.npmjs.com/package/numbase) supports arbitrary-radix interconversion, and, how delightful, lets you specify the universe of characters to use:
 ```js
 // From https://www.npmjs.com/package/numbase#examples // no-hydrogen
 // Setup an instance with custom base string
@@ -76,29 +79,27 @@ base.encode(19901230); // returns '国国海区上徐市徐汇'
 base.decode('国国海区上徐市徐汇'); // returns '19901230'
 ```
 
-Finally, [@Eclipse’s observation](http://stackoverflow.com/a/2510928/500207) really elucidated the connection between strings and numbers, thereby explaining what mathematical vein @m69’s algorithm was ad hocly tapping. @Eclipse suggested converting a string to a number and then *treating the result as a fraction between 0 and 1*. That is, just place a radix-point before the first digit (in the given base) and perform arithmetic on it.
+Finally, [@Eclipse’s observation](http://stackoverflow.com/a/2510928/500207) really elucidated the connection between strings and numbers, and explaining the mathematical vein that @m69’s algorithm was ad hocly tapping. @Eclipse suggested converting a string to a number and then *treating the result as a fraction between 0 and 1*. That is, just place a radix-point before the first digit (in the given base) and perform arithmetic on it. (In this document, I use “radix” and “base” interchangeably.)
 
-**Innovations** Mudder.js (this dependency-free JavaScript/ES2015 library) is a generalization of @m69’s algorithm that operates on *arbitrary JavaScript strings* instead of strings containing lowercase `a-z` characters: your strings can contain, e.g., 日本語 characters or 🔥 emoji. (Like @m69’s algorithm, you do have to specify upfront the universe of stringy symbols to operate on.)
+**Innovations** Mudder.js (this dependency-free JavaScript/ES2015 library) is a generalization of @m69’s algorithm. It operates on strings containing *arbitrary substrings* instead of just lowercase `a-z` characters: your strings can contain, e.g., 日本語 characters or 🔥 emoji. (Like @m69’s algorithm, you do have to specify upfront the universe of stringy symbols to operate on.)
 
-You can ask Mudder.js for `N ≥ 1` strings that sort between two input strings. (You could use @m69’s original algorithm recursively on its outputs and get `2^m ≥ N` strings, then just take `N` of them.)
+You can ask Mudder.js for `N ≥ 1` strings that sort between two input strings. These strings will be as short as possible.
 
 These are possible because Mudder.js converts strings to non-decimal-radix (non-base-10), arbitrary-precision fractional numbers between 0 and 1. Having obtained numeric representations of strings, it’s straightforward to compute their average, or midpoint, `(a + b) / 2`, or even `N` intermediate points `a + (b - a) / N * i` for `i` going from 1 to `N - 1`, using the long addition and long division you learned in primary school. (By avoiding native floating-point, Mudder.js can handle arbitrarily-long strings, and generalizes @Eclipse’s suggestion.)
 
-Because numbase made it look so fun, as a bonus, Mudder.js can convert regular JavaScript integers to strings. You may specify a multi-character string for each digit. Therefore, should the gastronome in you invent a ternary (radix-3) numerical system based on today’s meals, with 0=🍌🍳☕️, 1=🍱, and 2=🍣🍮, Mudder.js can help you rewrite (42)<sub>10</sub>, that is, 42 in our everyday base 10, as (🍱🍱🍣🍮🍌🍳☕️)<sub>breakfast, lunch, and dinner</sub>.
+Because `numbase` made it look so fun, as a bonus, Mudder.js can convert regular JavaScript integers to strings. You may specify a multi-character string for each digit. Therefore, should the gastronome in you invent a ternary (radix-3) numerical system based on today’s meals, with 0=🍌🍳☕️, 1=🍱, and 2=🍣🍮, Mudder.js can help you rewrite (42)<sub>10</sub>, that is, 42 in our everyday base 10, as (🍱🍱🍣🍮🍌🍳☕️)<sub>breakfast, lunch, and dinner</sub>.
 
-**This document** This document is a Markdown file that I edit in Atom. It contains code blocks that I can run in Node.js via Hydrogen, an Atom plugin that talks to ijs using the Jupyter (formerly IPython Notebook) protocol, which in turn talks to Node. I don’t keep a terminal window open to Node: all development, including scratch work and test snippets, happens in this Markdown file and goes through Hydrogen.
+**This document** This document is a Markdown file that I edit in Atom. It contains code blocks that I can run in Node.js via Hydrogen, an Atom plugin that talks to Node over the Jupyter protocol (formerly IPython Notebook). I don’t have a terminal window open: all development, including scratch work and test snippets, happens in this Markdown file and goes through Hydrogen.
 
-This workflow allowed me to make this document into a heavily-edited diary of the process of writing the library. While this file contains the final code as written to `.js` files, I also explain the experimentation that led to design decisions, the alternatives to those decisions, opportunities for improvements, references, and numerous asides.
+This workflow allows this document to be a heavily-edited diary of writing the library. You, the reader, can see not just the final code but also the experimentation, design choices and decisions and alternatives, opportunities for improvement, references, and asides.
+
+The result of evaluating all code blocks is included at the bottom of each code block (using custom Atom [plugins](https://github.com/fasiha/atom-papyrus-sedge)).
+
+Furthermore, all source code files and configuration files included in this repository are derived from code blocks in *this* Markdown file. This is done by another plugin that goes through this document and pipes code blocks to external files.
 
 In this way, this document is a primitive (or futuristic?) riff on literate programming, the approach discovered and celebrated by Donald Knuth.
 
-This Markdown document can be read on GitHub or npmjs. It can be edited and evaluated in Atom.
-
-I will have custom Atom macros that insert the results of evaluating code blocks right into this file.
-
-I’ll soon write more Atom macros that pipe out some code blocks to their own file, thereby creating the files needed by the modern JavaScript/ES2015 ecosystem (`package.json`, Rollup and Babel configs, the actual JavaScript code files), which you can then download and use in your own projects.
-
-I’m also planning on writing a small library that converts this Markdown file to a live-coding-enabled webapp, where you can read the exposition, like on GitHub, but where the code blocks are fully editable and real-time-executable in the browser.
+Besides reading this document passively on GitHub or npmjs.org, you will eventually be able to read it as an interactive, live-coding webapp, where each code block is editable and executable in your browser. This in turn makes it a riff on [Alan Kay’s vision](http://blog.klipse.tech/javascript/2016/06/20/blog-javascript.html) for interactive programming environments for *readers* as well as writers.
 
 ## Plan
 Since we must convert strings to arbitrary-radix digits, and back again, this library includes enhanced versions of
@@ -106,7 +107,7 @@ Since we must convert strings to arbitrary-radix digits, and back again, this li
 - [`Number.prototype.toString`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toString) which converts JavaScript integers to strings for bases between base-2 (binary) and base-36 (alphanumeric),
 - [`parseInt`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/parseInt) which inverts this operation by converting a string of digits in some base between 2 and 36 to a JavaScript number.
 
-Specifically, we need versions of these functions that operate on bases >36, and that let the user specify the strings used to denote each digit in the arbitrary-radix numerical system. (In this document, I will use “base” and “radix” interchangeably.)
+Specifically, we need versions of these functions that operate on bases >36, and that let the user specify the strings used to denote each digit in the arbitrary-radix numerical system. (Recall that I use “base” and “radix” interchangeably.)
 
 We will create these library functions in the next section.
 
@@ -116,23 +117,16 @@ This sounds fancy, but again, it’s quite pedestrian. We’ll implement long ad
 
 Finally, with these preliminaries out of the way, we’ll implement the functions to help us paper over all this machinery and that just give us strings lexicographically between two other strings.
 
-## Prior art
-
-## Emoji numbers, or
-
-## Of numbers and digits
-Let us begin by improving JavaScript’s built-in
-
-- `Number.toString`, for converting numbers to strings, and
-- `parseInt`, for converting strings to numbers,
-
-because both of these are limited to radixes ≤36, and are limited to strings containing `0-9` and `a-z`. “Radix” here just means numeric base: here’s what these functions do, for the binary radix-2 and alphanumeric radix-36 cases:
+## Symbol tables
+Let us remind ourselves what `toString` and `parseInt` do:
 ~~~js
-console.log([ parseInt('1010', 2), (10).toString(2) ])
-console.log([ parseInt('7PS', 36), (10000).toString(36) ])
+console.log([ parseInt('111110100', 2), (500).toString(2) ])
+console.log([ parseInt('DW', 36), (500).toString(36) ])
+// > [ 500, '111110100' ]
+// > [ 500, 'dw' ]
+// > undefined
 ~~~
 
-## Symbol tables
 How do these two interrelated functions work? Both share what we’ll call a *symbol table*, essentially a list of unique stringy symbols and the number they represent:
 
 - `0` ⇔ 0
