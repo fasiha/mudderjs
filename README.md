@@ -117,15 +117,41 @@ This sounds fancy, but again, it’s quite pedestrian. We’ll implement long ad
 
 Finally, with these preliminaries out of the way, we’ll implement the functions to help us paper over all this machinery and that just give us strings lexicographically between two other strings.
 
-## Symbol tables
+## Symbol tables, numbers, and digits
 Let us remind ourselves what `toString` and `parseInt` do:
 ~~~js
-console.log([ parseInt('111110100', 2), (500).toString(2) ])
-console.log([ parseInt('DW', 36), (500).toString(36) ])
-// > [ 500, '111110100' ]
-// > [ 500, 'dw' ]
+console.log([ (200).toString(2), parseInt('11001000', 2) ])
+console.log([ (200).toString(36), parseInt('5K', 36) ])
+// > [ '11001000', 200 ]
+// > [ '5k', 200 ]
 // > undefined
 ~~~
+(200)<sub>10</sub> = (1100 1000)<sub>2</sub> = (5K)<sub>36</sub>. One underlying number, many different representations. Each of these is a positional number system with a different base: base-10 is our everyday decimal system, base-2 is the binary system our computers operate on, and base-36 is an uncommon but valid alphabetic system.
+
+Recall from grade school that this way of writing numbers, as (digit 1, digit 2, digit 3)<sub>base</sub>, means each digit is a multiple of `Math.pow(B, i)` where `i=0` for the right-most digit (in the ones place), and going up for each digit to its left.
+~~~js
+var dec = 2 * 100 + // 100 = Math.pow(10, 2)
+          0 * 10 +  // 10 = Math.pow(10, 1)
+          0 * 1;    // 1 = Math.pow(10, 0)
+
+var bin = 1 * 128 + // 128 = Math.pow(2, 7)
+          1 * 64 +  // 64 = Math.pow(2, 6)
+          0 * 32 +  // 32 = Math.pow(2, 5)
+          0 * 16 +  // 16 = Math.pow(2, 4)
+          1 * 8 +   // 8 = Math.pow(2, 3)
+          0 * 4 +   // 4 = Math.pow(2, 2)
+          0 * 2 +   // 2 = Math.pow(2, 1)
+          0 * 1;    // 1 = Math.pow(2, 0)
+
+var aln = 5 * 36 + // 36 = Math.pow(36, 1)
+          20 * 1;  // 1 = Math.pow(36, 0)
+
+console.log(dec === bin && dec === aln ? 'All same!' : 'all NOT same?');
+// > All same!
+~~~
+That last example and its use of `K` as a digit might seem strange, but for bases >10, people just use letters instead of numbers. `A=10`, `F=15`, and `K=20` using this convention. As demonstrated above, JavaScript doesn’t distinguish between uppercase and lowercase letters, since it refuses to consider bases >36, but we want strings with more color than that.
+
+
 
 How do these two interrelated functions work? Both share what we’ll call a *symbol table*, essentially a list of unique stringy symbols and the number they represent:
 
