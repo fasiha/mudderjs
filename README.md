@@ -238,6 +238,8 @@ Making sure it works:
 ~~~js
 console.log(isPrefixCode('a,b,c'.split(',')));
 console.log(isPrefixCode('a,b,bc'.split(',')));
+// > true
+// > false
 ~~~
 
 #### A faster `isPrefixCode`
@@ -293,7 +295,6 @@ If a string→number map is provided in addition to a `B`-length array, this map
 The symbol table should also remember if it’s prefix-free. If it is, parsing strings to numbers is doable. If not, strings must be split into an array of sub-strings first (using out-of-band, non-numeric punctuation, perhaps).
 
 Without further ado:
-
 ~~~js
 /* Constructor:
 symbolsArr is a string (split into an array) or an array. In either case, it
@@ -310,55 +311,91 @@ symbolsArr, then number->string would use that symbol, but the resulting
 string couldn't be parsed because that symbol wasn't in symbolMap.
 */
 function SymbolTable(symbolsArr, symbolsMap) {
-  'use strict';
+  'use strict'; // [⛈]
   if (typeof this === 'undefined') {
     throw new TypeError('constructor called as a function')
   };
 
+  // Condition the input `symbolsArr`
   if (typeof symbolsArr === 'string') {
     symbolsArr = symbolsArr.split('');
-    this.num2sym = symbolsArr;
-    this.sym2num = new Map(symbolsArr.map((str, idx) => [str, idx]));
-
-  } else if (Array.isArray(symbolsArr)) {
-    this.num2sym = symbolsArr;
-    if (typeof symbolsMap === 'undefined') {
-      symbolsMap = new Map(symbolsArr.map((str, idx) => [str, idx]));
-
-    } else if (symbolsMap instanceof Map) {
-      symbolsMap = symbolsMap;
-
-    } else if (symbolsMap instanceof Object) {
-      symbolsMap = new Map(symbolsMap.entries());
-
-    } else {
-      throw new TypeError(
-          'arguments: (string), (array), (array, map), or (array, object)');
-    }
-
-    let symbolsValuesSet = new Set(symbolsMap.values());
-    for (let i = 0; i < symbolsArr.length; i++) {
-      if (!symbolsValuesSet.has(i)) {
-        throw new RangeError(symbolsArr.length + ' symbols given but ' + i +
-                             ' not found in symbol table');
-      }
-    }
-    
-    this.sym2num = symbolsMap;
-
-  } else {
-    throw new TypeError(
-        'arguments: (string), (array), (array, map), or (array, object)');
+  } else if (!Array.isArray(symbolsArr)) {
+    throw new TypeError('symbolsArr must be string or array');
   }
 
+  // Condition the second input, `symbolsMap`. If no symbolsMap passed in, make
+  // it by inverting symbolsArr. If it's an object (and not a Map), convert its
+  // own-properties to a Map.
+  if (typeof symbolsMap === 'undefined') {
+    symbolsMap = new Map(symbolsArr.map((str, idx) => [str, idx]));
+  } else if (symbolsMap instanceof Object && !(symbolsMap instanceof Map)) {
+    symbolsMap = new Map(Object.entries(symbolsMap)); // [🌪]
+  } else {
+    throw new TypeError('symbolsMap can be omitted, a Map, or an Object');
+  }
+
+  // Ensure that each integer from 0 to `symbolsArr.length - 1` is a value in
+  // `symbolsMap`
+  let symbolsValuesSet = new Set(symbolsMap.values());
+  for (let i = 0; i < symbolsArr.length; i++) {
+    if (!symbolsValuesSet.has(i)) {
+      throw new RangeError(symbolsArr.length + ' symbols given but ' + i +
+                           ' not found in symbol table');
+    }
+  }
+
+  this.num2sym = symbolsArr;
+  this.sym2num = symbolsMap;
   this.maxBase = this.num2sym.length;
   this.isPrefixCode = isPrefixCode(symbolsArr);
 }
+~~~
 
+A programmatic note: around `[⛈]` we’re making sure that forgetting `new` when calling `SymbolTable` will throw an exception. It’s a simple solution to the [JavaScript constructor problem](http://raganwald.com/2014/07/09/javascript-constructor-problem.html#solution-kill-it-with-fire)
+
+A microscopic programmatic note: at `[🌪]` we use an ES2017 function, [`Object.entries`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/entries). Node (my development environment in Atom) currently doesn’t support this, so here’s a polyfill that I need to run during development. (If you’re reading this in as an interactive document in a browser that supports `Object.entries`, you won’t have to do anything like this. If you’re using a browser that doesn’t support this, write to me and I’ll use a browser-enabled polyfill.)
+~~~js
+var entries = require('object.entries');
+if (!Object.entries) {
+  entries.shim();
+}
+~~~
+
+Now.
+
+Let’s make sure the constructor at least works:
+~~~js
 var binary = new SymbolTable('01');
-var decimal = new SymbolTable('0123456789');
 var meals = new SymbolTable('🍌🍳☕️,🍱,🍣🍮'.split(','));
-console.log([ binary, decimal, meals ]);
+var romanQuat =
+    new SymbolTable('_,I,II,III'.split(','),
+                    {_ : 0, I : 1, i : 1, II : 2, ii : 2, III : 3, iii : 3});
+console.log('Binary:', binary);
+console.log('Meals:', meals);
+console.log('Roman quaternary', romanQuat);
+// > Binary: SymbolTable {
+// >  num2sym: [ '0', '1' ],
+// >  sym2num: Map { '0' => 0, '1' => 1 },
+// >  maxBase: 2,
+// >  isPrefixCode: true }
+// > Meals: SymbolTable {
+// >  num2sym: [ '🍌🍳☕️', '🍱', '🍣🍮' ],
+// >  sym2num: Map { '🍌🍳☕️' => 0, '🍱' => 1, '🍣🍮' => 2 },
+// >  maxBase: 3,
+// >  isPrefixCode: true }
+// > Roman quaternary SymbolTable {
+// >  num2sym: [ '_', 'I', 'II', 'III' ],
+// >  sym2num:
+// >   Map {
+// >     '_' => 0,
+// >     'I' => 1,
+// >     'i' => 1,
+// >     'II' => 2,
+// >     'ii' => 2,
+// >     'III' => 3,
+// >     'iii' => 3 },
+// >  maxBase: 4,
+// >  isPrefixCode: false }
 ~~~
 
 ~~~js
