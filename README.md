@@ -126,7 +126,7 @@ console.log([ (200).toString(36), parseInt('5K', 36) ])
 // > [ '5k', 200 ]
 // > undefined
 ~~~
-(200)<sub>10</sub> = (1100 1000)<sub>2</sub> = (5K)<sub>36</sub>. One underlying number, many different representations. Each of these is a positional number system with a different base: base-10 is our everyday decimal system, base-2 is the binary system our computers operate on, and base-36 is an uncommon but valid alphabetic system.
+(200)<sub>10</sub> = (1100 1000)<sub>2</sub> = (5K)<sub>36</sub>. One underlying number, many different representations. Each of these is a positional number system with a different base: base-10 is our everyday decimal system, base-2 is the binary system our computers operate on, and base-36 is an uncommon but valid alphanumeric system.
 
 Recall from grade school that this way of writing numbers, as (digit 1, digit 2, digit 3)<sub>base</sub>, means each digit is a multiple of `Math.pow(B, i)` where `i=0` for the right-most digit (in the ones place), and going up for each digit to its left.
 ~~~js
@@ -149,11 +149,9 @@ var aln = 5 * 36 + // 36 = Math.pow(36, 1)
 console.log(dec === bin && dec === aln ? 'All same!' : 'all NOT same?');
 // > All same!
 ~~~
-That last example and its use of `K` as a digit might seem strange, but for bases >10, people just use letters instead of numbers. `A=10`, `F=15`, and `K=20` using this convention. As demonstrated above, JavaScript doesn’t distinguish between uppercase and lowercase letters, since it refuses to consider bases >36, but we want strings with more color than that.
+That last example and its use of `K` as a digit might seem strange, but for bases >10, people just use letters instead of numbers. `A=10`, `F=15`, `K=20`, and `Z=36` using this convention.
 
-
-
-How do these two interrelated functions work? Both share what we’ll call a *symbol table*, essentially a list of unique stringy symbols and the number they represent:
+Both these functions operate on what we’ll call a *symbol table*: a mapping between stringy symbols and the numbers from 0 to one less than the maximum base. Here’s the symbol table underlying `parseInt` and `Number.prototype.toString`, with stringy symbols on the left and numbers on the right:
 
 - `0` ⇔ 0
 - `1` ⇔ 1
@@ -167,105 +165,46 @@ How do these two interrelated functions work? Both share what we’ll call a *sy
 - `z` ⇔ 35
 - `Z` ⇒ 35
 
-(Aside: `parseInt` accepts uppercase letters, treating them as lowercase, but `Number.toString` only outputs lowercase, so uppercase letters above have a right-arrow, instead of bidirectional.)
+(Aside: `parseInt` accepts uppercase letters, treating them as lowercase. `Number.prototype.toString` outputs only lowercase letters. Therefore, uppercase letters above have a right-arrow, instead of bidirectional.)
 
-Let’s resist the temptation to be avant-garde and agree that, to be valid, a symbol table must include symbols for 0 up to some maximum *consecutively*—no skipped numbers. With `B` (for “base”) unique numbers, such a symbol table defines numeric systems starting at radix-2 (binary) up to radix-`B`. `parseInt` & `Number.toString`’s symbol table above has `B=36`.
+For both the broader problem of lexicographically interior strings, as well as the sub-problem of converting between numbers and strings, we want to specify our own symbol tables. Here are a few ways we’d like to handle, in order of increasing complexity and flexibility:
 
-(Aside: Alas radix-36 doesn’t seem to have a fancy name like the ancient Sumerians’ radix-60 “sexagesimal” system so I call it “alphanumeric”.)
+1. **a string** Great for those simple use-cases: the string is `split` into individual characters, and each character is the symbol for its index number. Such a symbol table can handle bases as high as the number of characters in the input string. Example: `new SymbolTable('abcd')`.
+1. **an array of strings** To specify multi-character symbols such as emoji (which `String.split` will butcher), or whole words. Quaternary (radix-4) Roman-numeral example: `new SymbolTable('_,I,II,III'.split(','))`.
+1. **an array of strings, _plus_ a map of stringy symbols to numbers** This would let us specify fully-generic symbol tables like `parseInt`’s, where both `'F'` and `'f'` correspond to 15. The array uniquely sends numbers to strings, and the map sends ≥1 strings to numbers. The quaternary Roman-numeral example capable of ingesting lower-case letters:
+~~~js
+new SymbolTable('_,I,II,III'.split(','), new Map([
+                  [ '_', 0 ],                // zero
+                  [ 'I', 1 ], [ 'i', 1 ],    // 1, lower AND upper case!
+                  [ 'II', 2 ], [ 'ii', 2 ],  // 2
+                  [ 'III', 3 ], [ 'iii', 3 ] // 3
+                ]));
+~~~
+
+Let’s resist the temptation to be avant-garde: let’s agree that, to be valid, a symbol table must include symbols for *all* numbers between 0 and some maximum, with none skipped. `B` (for “base”) unique numbers lets the symbol table define number systems between radix-2 (binary) up to radix-`B`. JavaScript’s implicit symbol table handles `B≤36`, but as the examples above show, we don’t have to be restricted to base-36.
+
+(Aside: radix-36 doesn’t seem to have a fancy name like the ancient Sumerians’ radix-60 “sexagesimal” system so I call it “alphanumeric”.)
 
 (Aside²: While Sumerian and Babylonian scribes no doubt had astounding skills, they didn’t keep track of *sixty* unique symbols. Not even *fifty-nine*, since they lacked zero. Just two: “Y” for one and “&lt;” for ten. So 𒐘 was four and 𒐏 forty, so forty-four might be Unicodized as 𒐏𒐘?)
 
-With a specific base `B` to work in, and a symbol table with ≥`B` rows, one has all one needs for a standard positional numeric system that one learns in school: one of Genghis Khan’s Tümen contained (7PS)<sub>36</sub> soldiers, that is, 10,000=(10000)<sub>10</sub>:
-~~~js
-var base10 = parseInt('10000', 10);
-// 10000 = 0 * Math.pow(10, 0) +
-//         0 * Math.pow(10, 1) +
-//         0 * Math.pow(10, 2) +
-//         0 * Math.pow(10, 3) +
-//         1 * Math.pow(10, 4)
+We will indulge the postmodern in one way: we’ll allow symbol tables that are no lexicographically-sorted. That is, the number systems we define are allowed to flout the conventions of lexicographical ordering, in which case interior strings produced by Mudder.js won’t sort. I can’t think of a case where this would be actually useful, instead of just playful, so if you think this should be banned, get in touch, but for now, caveat emptor.
 
-var base36 = parseInt('7PS', 36);
-// 7PS = S * Math.pow(36, 0) +
-//       P * Math.pow(36, 1) +
-//       7 * Math.pow(36, 2)
+### Some prefix problems
 
-console.log(base36 === base10 && base10 === 10000);
-~~~
+The discussion of the Roman numeral system reminds me of a subtle but important point. If `i`, `ii`, and `iii` are all valid symbols, how on earth can we tell if  (iii)<sub>Roman quaternary</sub> is
 
-We’ll inevitably have to describe the algorithms used by `parseInt` and `Number.toString` that convert between JavaScript `Number`s and their stringy representations, given a base and symbol table, but let’s specify how symbol tables ought to work in this library.
+- (3)<sub>4</sub> = (3)<sub>10</sub>,
+- (12)<sub>4</sub> = (6)<sub>10</sub>,
+- (21)<sub>4</sub> = (9)<sub>10</sub>, or
+- (111)<sub>4</sub> = (21)<sub>10</sub>?
 
-Relevant aside: it’s not a requirement that the entries in the symbol table be lexicographically-sorted, but that is super-important in some applications.
+We can’t. We cannot parse strings like `iii`, not without punctuation like spaces which splits a string into an array individual symbols.
 
-Here are some possible ways to provide a symbol table:
+At this stage one might recall reading about Huffman coding, or Dr El Gamal’s lecture on [prefix codes](https://en.wikipedia.org/wiki/Prefix_code) in information theory class. In a nutshell, a set of strings has the prefix property, or is prefix-free, if no string starts with another string—if no set member is *prefixed* by another set member.
 
-1. **a string** Great for those simple use-cases, the string can be split into characters using `String.split('')`, and each character is the symbol for its index number.
-1. **an array of strings** Similar story, just skip `String.split`. This is nice because we can have multi-“character” symbols, such as emoji (which `String.split` will butcher), or words (in any language, even cuneiform—want to know how to write your age using your family members’ names as symbols? just wait…).
-1. **an object mapping stringy symbols to numbers** This would let us specify fully-generic symbol tables like `parseInt`’s, where both `'A'` and `'a'` correspond to 10. When multiple symbols map to the same number, we need a way to know which of them is the “default” for converting numbers to stringy digits (like how `Number.toString` outputs only lowercase letters).
+I’ve decided to allow Mudder.js to parse raw strings only if the symbol table is prefix-free. If it is *not* prefix-free, then Mudder.js’s version of `parseInt` will throw an exception if fed a string—you must pass it an array, having resolved the ambiguity yourself, using punctuation perhaps.
 
-## Strings to symbols—some prefix specifics
-This discussion of `String.split` reminds me—how will this library’s `parseInt` break up stringy inputs into symbols?
-
-Suppose we have a ternary radix-3 system where 0=🍌🍳☕️, 1=🍱, and 2=🍣🍮 (my three meals of the day). Here’s a quick-and-dirty way to represent numbers in this radix-3 numerical system with meals as symbols, so we can get to this question of how to go from strings back to numbers:
-~~~js
-// We’d like to call `toEmoji(42, '🍌🍳☕️,🍱,🍣🍮'.split(','))`:
-var toEmoji = (x, symbols) => symbols.reduce(
-    (prev, curr, i) => prev.replace(new RegExp(i, 'g'), curr),
-    x.toString(symbols.length));
-
-var mealSymbols1 = '🍌🍳☕️,🍱,🍣🍮'.split(',');
-console.log(toEmoji(42, mealSymbols1));
-/* result:
-"🍱🍱🍣🍮🍌🍳☕️"
-*/
-~~~
-Ok, seems to work: (42)<sub>10</sub> with this symbol table is (🍱🍱🍣🍮🍌🍳☕️)<sub>today’s meals</sub>.
-
-Now, how would one convert this back to a number?—specifically, how would one find each digit in this epicurean radix-3 representation of a number? One option: with some regular expression fanciness:
-~~~js
-var fromEmoji = (x, symbols) => parseInt(
-    x.match(new RegExp(symbols.map(s => `(${s})`).join('|'), 'g'))
-        .map(symbol => '' + symbols.findIndex(elt => elt === symbol))
-        .join(''),
-    symbols.length);
-
-console.log(fromEmoji(toEmoji(42, mealSymbols1), mealSymbols1));
-/* result:
-42
-*/
-~~~
-The code is obscenely complicated but it does seem to work (we’ll make rewrite it more coherently shortly).
-
-BUT WAIT! What happens if I have voluminous bento leftovers 🍱 for dinner? Then the symbol for 2 is 🍱🍮:
-~~~js
-var mealSymbolsBad = '🍌🍳☕️,🍱,🍱🍮'.split(',');
-console.log(toEmoji(42, mealSymbolsBad))
-/* result:
-"🍱🍱🍱🍮🍌🍳☕️"
-*/
-console.log(fromEmoji(toEmoji(42, mealSymbolsBad), mealSymbolsBad));
-/* result:
-39
-*/
-~~~
-*We get the wrong answer!* I’m writing this on the fly here, and it’s very possible I have a bug in `to/fromEmoji` but actually, there’s a real problem here: one of the symbols is another symbol’s prefix, so the regular expression snaps up the first 🍱=lunch=1 in 🍱🍮=dinner=2, therefore failing to match the lone suffix ‘🍮’ and skips 🍮 entirely, and generally makes a mess of things.
-
-At this stage one might recall reading about Huffman coding, or Dr El Gamal’s lecture on [prefix codes](https://en.wikipedia.org/wiki/Prefix_code) in information theory class. One way or another, we decide that, if we consume a plain string without any ‘commas’ (non-numeric inter-symbol punctuation), the symbol table has to be prefix-free, i.e., *no complete symbol can serve as prefix to another symbol.*
-
-(Aside: in this particular example, the presence of prefixing isn’t catastrophic—in fact, by constructing a regular expression with symbols arranged longest-to-shortest (in terms of number of characters), it would have worked—but only because the trailing suffix, 🍮 dessert, wasn’t itself a symbol. By choosing to parse strings into symbols only with prefix codes, we’re making life a little simpler for ourselves, but no doubt there are ways to deal with symbol tables with prefixes—if you really want them, write to me and we can work out the details.)
-
-So if our super-`parseInt` is working with a _not_-prefix-free symbol table, it should only accept an array, each element of which is a single stringy symbol. If its symbol table _is_ prefix-free, then a string of symbols, like `'🍱🍱🍣🍮🍌🍳☕️'` is acceptable if hunger-inducing.
-
-### A plea
-
-Please, please don’t write code like the above except for throw-away explorations, like I was doing. While you may be able to cobble together nested map–reduce–finds that run in quadratic time yet get the job done in a relatively short amount of time because you can clearly visualize the inputs and desired outputs and the transform between them, it will take much longer to rebuild that visualization later, when it’s gone, by reading such code.
-
-So, let’s write it.
-
-## String ↔︎ (digits) ↔︎ JavaScript number
-
-### Is it a prefix code?
-I’ve decided—parsing a string to a number will only be attempted for prefix-free symbol tables. You can still use prefixed symbols but if you do, you have to split your string into an array of sub-strings yourself.
-
+#### Code to detect the prefix property
 So, let’s write a dumb way to decide if a set or array of stringy symbols constitutes a prefix code. If any symbol is a prefix of another symbol (other than itself of course), the symbol table **isn’t** prefix-free, and we don’t have a prefix code.
 ~~~js
 function isPrefixCode(strings) {
@@ -274,7 +213,7 @@ function isPrefixCode(strings) {
   // ignored*!
   for (const i of strings) {
     for (const j of strings) {
-      if (j === i) {
+      if (j === i) { // [🍅]
         continue;
       }
       if (i.startsWith(j)) {
@@ -285,13 +224,23 @@ function isPrefixCode(strings) {
   return true;
 }
 ~~~
-As with most mundane-seeming things, there’s some subtlety here: note how, inside the double-loop, we skip comparing the same *strings*. In the event that the input symbols set has *repeats*, this function will implicitly treat those repeats as the same symbol. The alternative—to ascribe some sort of meaning to repeated elements in the symbol set like it’d never be a good idea. Please advise if this decision was wrong.
+As with most mundane-seeming things, there’s some subtlety here. Do you see how, at `[🍅]` above, we skip comparing the same strings?—that part’s not tricky, that’s absolutely needed. But because of this, if the input set contains *repeats*, this function will implicitly treat those repeats as the *same* symbol.
+~~~js
+console.log(isPrefixCode('a,b,b,b,b,b'.split(',')) ? 'prefix code!'
+                                                   : 'NOT PREFIX CODE 😷');
+// > prefix code!
+~~~
+One alternative might be to throw an exception upon detecting repeat symbols. Or: instead of comparing the strings themselves at `[🍅]`, compare indexes—this will declare sets with repeats as non-prefix-free, but that would imply that there was some sense in treating `'b'` and `'b'` as different numbers.
+
+So the design decision here is that `isPrefixFree` ignores repeated symbols in its calculation, and assumes repeats are somehow dealt with downstream. Please write if this is the wrong decision.
 
 Making sure it works:
 ~~~js
 console.log(isPrefixCode('a,b,c'.split(',')));
 console.log(isPrefixCode('a,b,bc'.split(',')));
 ~~~
+
+#### A faster `isPrefixCode`
 
 But wait! This nested-loop has quadratic runtime, with `N*N` string equality checks and nearly `N*N` `startsWith()`s, for an `N`-element input. Can’t this be recast as an `N*log(N)` operation, by first *sorting* the stringy symbols lexicographically (`N*log(N)` runtime), and then looping through once to check `startsWith`? Try this:
 ~~~js
@@ -309,30 +258,15 @@ function isPrefixCodeLogLinear(strings) {
   return true;
 }
 ~~~
-A cogent definition of lexicographic ordering is in [documentation for Java’s `compareTo`](http://docs.oracle.com/javase/8/docs/api/java/lang/String.html#compareTo-java.lang.String-), but in a nutshell—to find the lex-distance between two strings, find the first position where they differ and subtract the the two characters at that position. If they’re the same and a string ends, return the difference in their lengths. Therefore:
-~~~js
-console.log('a,ba,bbbb,baaaa,baz,bz,z'.split(',').sort());
-// Why 'ba', then 'baaaa', then 'baz'?
-// 'ba' - 'baaaa' = length('ba') - length('baaaa') = -3
-// 'ba' - 'baz' = length('ba') - length('baz') = -1
-// 'baaaa' - 'baz' = 'a' - 'z' = -25
-~~~
-It certainly appears that, after sorting, a string will be preceded by its prefix, so a sequential scan through the sorted array, looking for prefixes, ought to do the trick. And indeed, it seems to work:
-~~~js
-console.log(isPrefixCodeLogLinear('a,b,c'.split(',')));
-console.log(isPrefixCodeLogLinear('a,b,bc'.split(',')));
+It was a bit of wild intuition to try this, but it has been confirmed to work: proof by internet, courtesy of [@KWillets on Computer Science StackExchange](http://cs.stackexchange.com/a/63313/8216).
 
-var foo = 'a b cqweasd def sa szb szq szbb'.split(/\s+/);
-var s =
-    'corrupt raspberry blockhead shop delicate discipline discipline-elegant liquid district sparkle';
-var bar = s.split(/\s+/);
-console.log(isPrefixCodeLogLinear(foo));
+To see why this works, recall that in [lexicographical ordering](http://docs.oracle.com/javase/8/docs/api/java/lang/String.html#compareTo-java.lang.String-), `'abc' < 'abc+anything else'`. The only way for a string to sort between a string `s` and `s + anotherString` is to be prefixed by `s` itself. This guarantees that prefixes sort adjacent to prefixeds.
 
-console.log(isPrefixCodeLogLinear(bar));
-~~~
-But is it faster? Let’s test it on a pile of very big random numbers, the set of which is likely to be prefix-free, so neither algorithm bails early after finding a prefix:
+(Aside: note that we’re use a lexicographical sort here just to find prefixes—our underlying symbol tables are allowed to be postmodern and lexicographically shuffled.)
+
+But is it faster? Let’s test it on a big set of random numbers, which should be prefix-free so neither algorithm bails early:
 ~~~js
-test = Array.from(Array(1000), () => '' + Math.floor(Math.random() * 10000000));
+test = Array.from(Array(1000), () => '' + Math.random());
 console.time('quad');
 isPrefixCode(test);
 console.timeEnd('quad');
@@ -340,14 +274,25 @@ console.timeEnd('quad');
 console.time('log');
 isPrefixCodeLogLinear(test);
 console.timeEnd('log');
+// > quad: 103.818ms
+// > log: 1.758ms
 ~~~
-Yes indeed, the log-linear approach using sorted strings is maybe ~100× faster than the quadratic approach using a double-loop. [@KWillets on Computer Science StackExchange](http://cs.stackexchange.com/q/63309/8216) was kind enough to confirm that this sort-based approach to determining the prefix property of a set of strings is legit—hooray 🙌! So let’s use this:
+Yes indeed, the log-linear approach using a sort is maybe ~100× faster than the quadratic approach using a double-loop. So let’s use the faster one:
 ~~~js
 isPrefixCode = isPrefixCodeLogLinear;
 ~~~
 
 ### Symbol table object constructor
+With this out of the way, let’s write our `SymbolTable` object. Recall from the examples above that it should take
 
+- a string or an array, which uniquely maps integers to strings—since an array element can contain only a single string!—and
+- optionally a map (literally a `Map`, or an object) from strings to numbers (many-to-one acceptable).
+
+If a string→number map is provided in addition to a `B`-length array, this map ought to be checked to ensure that its values include `B` numbers from 0 to `B - 1`.
+
+The symbol table should also remember if it’s prefix-free. If it is, parsing strings to numbers is doable. If not, strings must be split into an array of sub-strings first (using out-of-band, non-numeric punctuation, perhaps).
+
+Without further ado:
 
 ~~~js
 /* Constructor:
@@ -374,18 +319,23 @@ function SymbolTable(symbolsArr, symbolsMap) {
     symbolsArr = symbolsArr.split('');
     this.num2sym = symbolsArr;
     this.sym2num = new Map(symbolsArr.map((str, idx) => [str, idx]));
+
   } else if (Array.isArray(symbolsArr)) {
     this.num2sym = symbolsArr;
     if (typeof symbolsMap === 'undefined') {
       symbolsMap = new Map(symbolsArr.map((str, idx) => [str, idx]));
+
     } else if (symbolsMap instanceof Map) {
       symbolsMap = symbolsMap;
+
     } else if (symbolsMap instanceof Object) {
       symbolsMap = new Map(symbolsMap.entries());
+
     } else {
       throw new TypeError(
           'arguments: (string), (array), (array, map), or (array, object)');
     }
+
     let symbolsValuesSet = new Set(symbolsMap.values());
     for (let i = 0; i < symbolsArr.length; i++) {
       if (!symbolsValuesSet.has(i)) {
@@ -393,7 +343,9 @@ function SymbolTable(symbolsArr, symbolsMap) {
                              ' not found in symbol table');
       }
     }
+    
     this.sym2num = symbolsMap;
+
   } else {
     throw new TypeError(
         'arguments: (string), (array), (array, map), or (array, object)');
