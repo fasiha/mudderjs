@@ -173,7 +173,7 @@ For both the broader problem of lexicographically interior strings, as well as t
 1. **an array of strings** To specify multi-character symbols such as emoji (which `String.split` will butcher), or whole words. Quaternary (radix-4) Roman-numeral example: `new SymbolTable('_,I,II,III'.split(','))`.
 1. **an array of strings, _plus_ a map of stringy symbols to numbers** This would let us specify fully-generic symbol tables like `parseInt`’s, where both `'F'` and `'f'` correspond to 15. The array uniquely sends numbers to strings, and the map sends ≥1 strings to numbers. The quaternary Roman-numeral example capable of ingesting lower-case letters:
 ~~~js
-new SymbolTable('_,I,II,III'.split(','), new Map([
+new SymbolTable('_,I,II,III'.split(','), new Map([  // no-hydrogen
                   [ '_', 0 ],                // zero
                   [ 'I', 1 ], [ 'i', 1 ],    // 1, lower AND upper case!
                   [ 'II', 2 ], [ 'ii', 2 ],  // 2
@@ -370,15 +370,15 @@ var meals = new SymbolTable('🍌🍳☕️,🍱,🍣🍮'.split(','));
 var romanQuat =
     new SymbolTable('_,I,II,III'.split(','),
                     {_ : 0, I : 1, i : 1, II : 2, ii : 2, III : 3, iii : 3});
-console.log('Binary:', binary);
-console.log('Meals:', meals);
+console.log('Binary', binary);
+console.log('Meals', meals);
 console.log('Roman quaternary', romanQuat);
-// > Binary: SymbolTable {
+// > Binary SymbolTable {
 // >  num2sym: [ '0', '1' ],
 // >  sym2num: Map { '0' => 0, '1' => 1 },
 // >  maxBase: 2,
 // >  isPrefixCode: true }
-// > Meals: SymbolTable {
+// > Meals SymbolTable {
 // >  num2sym: [ '🍌🍳☕️', '🍱', '🍣🍮' ],
 // >  sym2num: Map { '🍌🍳☕️' => 0, '🍱' => 1, '🍣🍮' => 2 },
 // >  maxBase: 3,
@@ -397,7 +397,14 @@ console.log('Roman quaternary', romanQuat);
 // >  maxBase: 4,
 // >  isPrefixCode: false }
 ~~~
+A quick note: the quaternary Roman-numeral symbol table is indeed marked as a non-prefix-code.
 
+### Conversion functions: numbers ↔︎ digits ↔︎ strings
+We need four converters, two for numbers ↔︎ digits and two more for digits ↔︎ strings. (By numbers, I always mean positive integers in this document.) Let’s write those functions, and it should become clear what role “digits” play in this whole story.
+
+Recall how, when we write “123”, we mean “1 * 100 + 2 * 10 + 3 * 1”. This is how positional number systems work.
+
+To get this breakdown for any given number in base `B`, we repeatedly divide the integer by `B` and peel off the remainder each time to be a digit, giving you its digits from left to right. Here’s the idea in code:
 ~~~js
 SymbolTable.prototype.numberToDigits = function(num, base) {
   base = base || this.maxBase;
@@ -408,17 +415,62 @@ SymbolTable.prototype.numberToDigits = function(num, base) {
   }
   return digits.length ? digits.reverse() : [ 0 ];
 };
+~~~
+There’s a bit of incidental complexity here. In current JavaScript engines, [`push`ing](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/push) scalars to the end of an array is usually much faster than [`unshift`ing](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/unshift) scalars to its beginning. In my case:
+~~~js
+var v1 = [], v2 = [];
+console.time('push');
+for (let i = 0; i < 1e5; i++) {
+  v1.push(i % 7907);
+}
+console.timeEnd('push');
+
+console.time('unshift');
+for (let i = 0; i < 1e5; i++) {
+  v2.unshift(i % 7907);
+}
+console.timeEnd('unshift');
+// > push: 5.277ms
+// > unshift: 3051.876ms
+~~~
+So `SymbolTable.prototype.numberToDigits` calculates the left-most digit first and moves right, but `push`ing them onto the array leaves it reversed. So it reverses its final answer. It also has a special case that checks for 0.
+
+Let’s make sure it works:
+~~~js
+var decimal = new SymbolTable('0123456789');
 console.log(decimal.numberToDigits(123));
 console.log(decimal.numberToDigits(0));
+// > [ 1, 2, 3 ]
+// > [ 0 ]
 ~~~
+Let’s also make sure we don’t have any decimal/base-10 chauvinism:
+~~~js
+console.log(decimal.numberToDigits(123, 2), (123).toString(2));
 
+var hex = new SymbolTable('0123456789abcdef');
+console.log(hex.numberToDigits(123), (123).toString(16));
+// > [ 1, 1, 1, 1, 0, 1, 1 ] '1111011'
+// > [ 7, 11 ] '7b'
+~~~
+Note that each digit has to be `< B`, due to the modulo operation.
+
+This makes me want to implement digits→string to get `Number.prototype.toString`-like functionality:
 ~~~js
 SymbolTable.prototype.digitsToString = function(digits) {
   return digits.map(n => this.num2sym[n]).join('');
 };
-decimal.digitsToString(decimal.numberToDigits(123))
+~~~
+This function doesn’t is independent of what base to operate on. It’s just blindly replacing numbers with strings using the one-to-one `SymbolTable.num2sym` array.
+
+Confirming it works by going from number→digits→string:
+~~~js
+console.log(decimal.digitsToString(decimal.numberToDigits(123)));
+console.log(hex.digitsToString(hex.numberToDigits(123)));
+// > 123
+// > 7b
 ~~~
 
+Let’s just work backwards from strings to digits. We’ll build a big regular expressions to peel off each symbol if the symbol table is prefix-free. If it’s not, the “string” must actually be an array.
 ~~~js
 SymbolTable.prototype.stringToDigits = function(string) {
   if (!this.isPrefixCode && typeof string === 'string') {
@@ -431,32 +483,47 @@ SymbolTable.prototype.stringToDigits = function(string) {
   }
   return string.map(symbol => this.sym2num.get(symbol));
 };
+~~~
+Again, this operation is independent of the base. It’s just a table lookup, and involves no arithmetic.
+~~~js
 console.log(decimal.stringToDigits('123'));
 console.log(decimal.stringToDigits('123'.split('')));
+// > [ 1, 2, 3 ]
+// > [ 1, 2, 3 ]
 ~~~
 
+Finally, we achieve `parseInt`-parity with digits→number. The right-most digit is the coefficient for 1=`Math.pow(B, 0)`, and each successive digit to its left scales `Math.pow(B, index)`. In code:
 ~~~js
 SymbolTable.prototype.digitsToNumber = function(digits, base) {
   base = base || this.maxBase;
-  return digits.reduce((prev, curr, i) =>
-                           prev + curr * Math.pow(base, digits.length - i - 1),
-                       0);
+  let result = 0, currentBase = 1;
+  // Start at the right end (ones place) and move leftwards
+  for (let idx = digits.length - 1; idx >= 0; idx--) {
+    result += digits[idx] * currentBase;
+    currentBase *= base;
+  }
+  return result
 };
-console.log(decimal.digitsToNumber(decimal.stringToDigits('123')));
-console.log(decimal.digitsToNumber(decimal.stringToDigits(
-    decimal.digitsToString(decimal.numberToDigits(123)))));
+~~~
+A programmatic note: I chose to use an ugly old-style `for`-loop to start at the last digit and move to the first, and didn’t want to `reverse` the array. Also because `Math.pow(base, idx - 1)` is more expensive than `currentBase *= base` (this is also why I didn’t use a `reduce`).
 
+Let’s test it, both with 123 = 0x7B (hexadecimal base-16 numbers are commonly prefixed by `0x`):
+~~~js
+console.log(decimal.digitsToNumber([1, 2, 3]), hex.digitsToNumber([7, 11]));
+// > 123 123
+~~~
+We can trivially write non-stop number↔︎string functions:
+~~~js
 SymbolTable.prototype.numberToString = function(num, base) {
   return this.digitsToString(this.numberToDigits(num, base));
 };
 SymbolTable.prototype.stringToNumber = function(num, base) {
   return this.digitsToNumber(this.stringToDigits(num), base);
 };
-decimal.numberToString(decimal.stringToNumber('123'));
-
 ~~~
+With these, `SymbolTable` is `parseInt` and `Number.prototype.toString` super-charged.
 
-Now for some fun.
+Now for some silly fun.
 ~~~js
 var oda = new SymbolTable('天下布武');
 var meals = new SymbolTable('🍌🍳☕️,🍱,🍣🍮'.split(','));
@@ -472,13 +539,46 @@ var kangxi = `一丨丶丿乙亅二亠人儿入八冂冖冫几凵刀力勹匕匚
 var rad = new SymbolTable(kangxi);
 
 var v = [ 0, 1, 9, 10, 35, 36, 37, 61, 62, 63, 1945 ];
-console.log(v.map(
-    x =>
-        `${x} ${rad.numberToString(x)} ${base62.numberToString(x)} ${oda.numberToString(x)} ${meals.numberToString(x)}`));
 var v2 = [ 2e3, 2e4, 2e5, 2e6, 2e7, 2e8, 2e9 ];
-console.log(
-    v2.map(x => `${x} ${rad.numberToString(x)} ${base62.numberToString(x)}`));
+console.log(v.map(x => [x, rad.numberToString(x), base62.numberToString(x),
+                        oda.numberToString(x), meals.numberToString(x)]
+                           .join(' ')));
+console.log(v2.map(
+    x => [x, rad.numberToString(x), base62.numberToString(x)].join(' ')));
+// > [ '0 一 0 天 🍌🍳☕️',
+// >  '1 丨 1 下 🍱',
+// >  '9 儿 9 布下 🍱🍌🍳☕️🍌🍳☕️',
+// >  '10 入 A 布布 🍱🍌🍳☕️🍱',
+// >  '35 夕 Z 布天武 🍱🍌🍳☕️🍣🍮🍣🍮',
+// >  '36 大 a 布下天 🍱🍱🍌🍳☕️🍌🍳☕️',
+// >  '37 女 b 布下下 🍱🍱🍌🍳☕️🍱',
+// >  '61 戈 z 武武下 🍣🍮🍌🍳☕️🍣🍮🍱',
+// >  '62 戶 10 武武布 🍣🍮🍌🍳☕️🍣🍮🍣🍮',
+// >  '63 手 11 武武武 🍣🍮🍱🍌🍳☕️🍌🍳☕️',
+// >  '1945 儿勹 VN 下武布下布下 🍣🍮🍣🍮🍌🍳☕️🍌🍳☕️🍌🍳☕️🍌🍳☕️🍱' ]
+// > [ '2000 儿木 WG',
+// >  '20000 犬甘 5Ca',
+// >  '200000 乙殳老 q1o',
+// >  '2000000 尸行隶 8OI4',
+// >  '20000000 丶人貝黑 1Luue',
+// >  '200000000 匕父小玄 DXB8S',
+// >  '2000000000 黽几黃水 2BLnMW' ]
 ~~~
+Here, I made a few whimsical number systems to rewrite various interesting numbers in:
+
+- a quaternary radix-4 number system based on Oda Nobunaga’s motto circa late-1560s, <ruby>天下<rp>(</rp><rt>tenka</rt><rp>)</rp>布武<rp>（</rp><rt>fubu</rt><rp>)</rp></ruby> (with 天下 meaning ‘all under heaven’ and 布武 roughly meaning ‘military order’).
+- The epicurean ternary radix-3 number system using the day’s meals: 🍌🍳☕️ for breakfast, 🍱 for lunch, and 🍣🍮 for dinner.
+- Base-62, using `0-9A-Za-z`, which is actually quite reasonable for database keys.
+- a radix-214 number system using all 214 radicals of Chinese as promulgated in the 1716 Dictionary ordered by the Kangxi Emperor. Two billion, instead of ten digits in base-10, is rendered using just four radicals: 黽几黃水, traditionally meaning *frog, table, yellow, water*. Perhaps the next Joshua Foer will fashion this into a memory system for memory championships.
+
+## Arithmetic on digits
+In the previous section, we added methods to the `SymbolTable` object to convert positive integers ↔︎ digits ↔︎ strings, using the stringy symbols contained in the object, and a given radix `B`. By “digits” we meant an array of plain JavaScript numbers between 0 and `B - 1`. From this digits array you can:
+
+- recover the number by multiplying sucessive digits with successive powers of `B` and summing, so `[1, 2, 3]` is 123 in base-10 but in hexadecimal base-16, 0x123 is 291;
+- create a long string by mapping each digit to a unique stringy symbol, which is independent of base: `[1, 2, 3]` ↔︎ `'123'` using our Arabic symbols or `'一二三'` using Chinese symbols.
+
+
+
 
 ## Misc…
 Please don’t write code like the above, with chained `map`–`reduce`–`findIndex` insanity and quadratic searches—I’ve been thinking about these things for a bit and just wanted to throw something together. Here’s a more annotated version of both `toEmoji` and `fromEmoji`:
@@ -496,6 +596,7 @@ The map includes a key `'array'` with value of the initial array to serve as the
 
 With this `Map` representing the symbol table, and helper functions `replaceAll` and `symbolMapToRegexp`…
 ~~~js
+// no-hydrogen
 function lexdist(a,b) {
   const minlen = Math.min(a.length, b.length);
   for (let i = 0; i < minlen; i++){
@@ -871,10 +972,6 @@ subdivLinear([9], [1], nums, 4)
 'qwe' < 'qwea'
 // the problem with 'ba' is that there’s no string that can go between it and 'b'. This kind of implies that they’re the same string, given a-z symbols. I mean, if two integers have no integer between them, they're the same too right? It just so happens that, in lexicographic distance, sure 'b' < 'ba', but that doesn't change the underlying fact---integer 5 and 005 don't stop being the same even though their lexicographic distance is different.
 
-~~~
-
-~~~js
-console.log('whee');
 ~~~
 
 ##References
