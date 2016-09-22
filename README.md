@@ -577,7 +577,114 @@ In the previous section, we added methods to the `SymbolTable` object to convert
 - recover the number by multiplying sucessive digits with successive powers of `B` and summing, so `[1, 2, 3]` is 123 in base-10 but in hexadecimal base-16, 0x123 is 291;
 - create a long string by mapping each digit to a unique stringy symbol, which is independent of base: `[1, 2, 3]` ↔︎ `'123'` using our Arabic symbols or `'一二三'` using Chinese symbols.
 
+Now.
 
+Here’s the way to get strings *between* two given strings.
+
+1. Convert both strings to digits.
+2. Instead of treating the sequence of digits as a number with the radix-point to the *right* of the last digit, let’s pretend that the radix point was to the *left of the first digit*. This gives you two numbers both between 0 and 1.
+3. Still using the digits array, calculate their average. This new array of digits is readily mapped to a string that will be lexicographically “between” the original two strings.
+
+This might seem confusing! Arbitrary! Over-complicated! But I think every piece of this scheme is necessary and as simple as possible to achieve the desiderata at the top of this document.
+
+**Stupid example** Consider the base `B = 10` decimal system, and two strings, `'2'` and `'44'`. These strings map to digits `[2]` and `[4, 4]` respectively (and also to the numbers 2 and 44—stupid example to get you comfortable).
+
+Instead of these two strings representing integers with the radix-point (decimal point) after them, shift your perspective so that the radix-point is on the left:
+
+1. Not 2, but 0.2 = 2 ÷ 10.
+1. Not 44, but 0.44 = 44 ÷ 100.
+
+In other words, pretend both numbers have been divided by base `B` until they first drop below 1.
+
+Why do this? Just look at the mean of these fractions: `(0.2 + 0.44) / 2 = 0.32`. Move the decimal point in 0.32 to the end to get an integer, 32. Map 32 to a string: `'32'`. Look at that: `'2' < '32' < '44'`.
+
+The mean of two numbers comes from splitting the interval between them into two pieces. You can get `N` numbers by splitting the interval into `N + 1` pieces: `0.2 + (0.44 - 0.2) / (N + 1) * i` for `i` running from 1 to `N`. For `N = 5`, these are:
+~~~js
+var N = 5, a = 0.2, b = 0.44;
+var intermediates =
+    Array.from(Array(N), (_, i) => a + (b - a) / (N + 1) * (i + 1));
+console.log(intermediates);
+// > [ 0.24000000000000002, 0.28, 0.32, 0.36, 0.4 ]
+~~~
+Ignoring floating-point-precision problems, `'2' < '24' < '28' < '32' < '36' < '40' < '44'`.
+
+The same idea works for bases other than `B = 10`. It’s just that adding and dividing becomes a *bit* more complicated in non-decimal bases. Let’s write routines that add two digits arrays, and that can divide a digit array by a scalar, both in base-`B`.
+
+### Adding digits arrays
+Let’s re-create the scene. We started with two strings. We use a symbol table containing `B` entries to convert the strings to two arrays of digits, each element of which is a regular JavaScript integer between 0 and `B - 1`. *We are going to pretend that the digits have a radix-point before the first element* and we want to *add* the two sets of digits.
+
+Recall long addition from your youth. You add two base-10 decimal numbers by
+
+1. lining up the decimal point,
+1. adding the two rightmost numbers (filling in zeros if one number has fewer decimal places than the other),
+1. then moving left,
+1. taking care to carry the tens place of a sum if it was ≥10.
+
+Example: 0.12 + 0.456:
+```
+  0.12
++ 0.456
+  -----
+  0.576     ⟸ found 6 first, then 7, then finally 5.
+```
+An example with carries: 0.12 + 0.999:
+```
+  [1 1]     ⟸ carries
+  0.12
++ 0.999
+  -----
+  1.119    ⟸ found 9 first, then to the left
+```
+
+Let’s try an example in hexadecimal radix-16: 0x0.12 + 0x0.9ab:
+```
+  0.12
++ 0.9ab
+  -----
+  0.acb    ⟸ found 0xb first, then 0xc, then finally 0xa
+```
+Let’s check that this is right:
+~~~js
+console.log((0x12 / 0x100 + 0x9ab / 0x1000).toString(16));
+// > 0.acb
+~~~
+Here’s an example with carries:
+```
+ [1 1]     ⟸ hexadecimal carries
+  0.12
++ 0.ffd
+  -----
+  1.11d    ⟸ found 0xd first, then to the left
+```
+Checking this too:
+~~~js
+console.log((0x12 / 0x100 + 0xffd / 0x1000).toString(16));
+// > 1.11d
+~~~
+So with non-decimal bases, we just have to understand that, if after adding a column we get `sum = digit_1 + digit_2 + carry ≥ B`, carry the `1` to the next column to the left, and write down `B - sum` for the current column. The carry will always be 0 or 1, since biggest possible carry would be from adding `(B - 1) + (B - 1) = 1 * B + (B - 2) * 1` in a single column: in this case, you’d write down `B - 2` for that column and carry the 1 that multiplies `B`.
+
+Let’s implement it in JavaScript!
+~~~js
+function longAdd(a, b, base) {
+  // sum starts out as copy of longer
+  const sum = a.length < b.length ? b.slice() : a.slice();
+  // short is a reference to the shorter
+  const short = !(a.length < b.length) ? b : a;
+
+  let carry = 0;
+  for (let idx = short.length - 1; idx >= 0; idx--) {
+    let tmp = sum[idx] + short[idx] + carry;
+    if (tmp >= base) {
+      sum[idx] = tmp - base;
+      carry = 1;
+    } else {
+      sum[idx] = tmp;
+      carry = 0;
+    }
+  }
+  return {sum, overflow : carry};
+}
+~~~
 
 
 ## Misc…
@@ -906,7 +1013,9 @@ function longAddRem(a, b, base) {
   if (res.overflow) {
     throw new Error('unsupported: overflow add');
   }
-  var rem = a.rem + b.rem;
+  var remscale = Math.pow(base, Math.abs(a.div.length - b.div.length));
+  var rem = a.div.length < b.div.length ? remscale * a.rem + b.rem
+                                        : remscale * b.rem + a.rem;
   while (rem >= a.den) {
     rem -= a.den;
     var tmp = zeros(res.sum.length);
@@ -916,14 +1025,22 @@ function longAddRem(a, b, base) {
       throw new Error('unsupported: overflow add');
     }
   }
-  return {div: res.sum, rem, den:a.den};
+  return {div : res.sum, rem, den : a.den};
 }
-console.log(longAddRem({div: [4,5], rem:7, den:12}, {div:[4,5], rem:7, den:12}, 10))
+console.log(longAddRem({div : [ 4, 5 ], rem : 7, den : 12},
+                       {div : [ 1 ], rem : 7, den : 12}, 10))
+.45+(7/12)*1e-2 + .1+(7/12)*1e-1
+
+
+console.log(longAddRem({div: [4,5], rem:7, den:12}, {div:[1,0], rem:7, den:12}, 10))
+.45+(7/12)*1e-2 + .10+(7/12)*1e-2
+
+console.log(longAddRem({div: [4,5,6,7,8], rem:1, den:10}, {div:[1], rem:7, den:10}, 10))
+.45678+1/10*1e-5 + .1+7/10*1e-1
 
 function roundQuotientRemainder(sol, base) {
   var places = Math.ceil(Math.log(sol.den) / Math.log(base));
   var scale = Math.pow(10, places);
-  var a = sol.div;
   var rem = Math.round(sol.rem * scale / sol.den);
   var remDigits = num2digits(rem, base);
   return sol.div.concat(zeros(places - remDigits.length)).concat(remDigits);
@@ -959,8 +1076,24 @@ range(19).map(i=>.1 + .1/19*i).map(x=>Math.round(x*10000)/10000)
 subdivLinear([1], [2], nums, 19).map(x=>roundQuotientRemainder(x, nums.get('base')))
 subdivLinear([9], [1], nums, 4)
 
+subdivLinear([2], [4, 4], nums, 4)
+subdivLinear([2, 0], [4, 4], nums, 10)
+subdivLinear([2], [4, 4], nums, 10).map(x=>roundQuotientRemainder(x, nums.get('base')))
+subdivLinear([2, 0], [4, 4], nums, 10).map(x=>roundQuotientRemainder(x, nums.get('base')))
 
+longDiv([2], 6, 10)
+longDiv([2, 0], 6, 10)
+longDiv([2,0, 0], 6, 10)
 
+'2' < '24'
+'20' < '24'
+'24' < '28'
+'28' < '32'
+'32' < '36'
+'36' < '40'
+'40' < '44'
+'36' < '4'
+'4' < '44'
 // A symbol map might contain an 'escape hatch' symbol, i.e., one that is only
 // used to find midpoints between equal strings. Such an escape hatch symbol
 // would be one that is not in the standard symbol list. Using this escape hatch
