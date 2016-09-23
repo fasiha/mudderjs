@@ -685,25 +685,16 @@ Programming note: I used `reduceRight`, a very functional-programming-y techniqu
 
 I use a single boolean to indicate whether there’s a carry digit. It’s returned, along with a new array of digits representing the sum. Just like long-addition by hand, the radix-point is to the left of the `sum` array of digits—but, again just like long-addition by hand, if the final `carry` is true, there’s a “1” to the left of that radix point!
 
-An example will help clear this up. Again, I’d like to emphasize that, for purposes of this base-`B` long-addition, an array of digits, like `[1, 2, 3]` or `[4]`, represents the number (0.123)<sub>`B`</sub> or (0.4)<sub>`B`</sub> respectively. In decimal base-10, (0.123)<sub>10</sub> + (0.4)<sub>10</sub> = (0.523)<sub>10</sub>. We also check (0.123)<sub>5</sub> + (0.4)<sub>5</sub> in quinary, base-5:
+An example will help clear this up. Again, I’d like to emphasize that, for purposes of this base-`B` long-addition, an array of digits, like `[1, 2]` or `[15, 15, 13]`, represents the number (0.12)<sub>`B`</sub> or (0.ffd)<sub>`B`</sub> respectively. Let’s check the hexadecimal answer above:
 ~~~js
 console.log([
-  longAdd([ 1, 2, 3 ], [ 4 ], 10),
-  longAdd([ 4 ], [ 1, 2, 3 ], 10),
+  longAdd([ 1, 2 ], [ 0xf, 0xf, 0xd ], 16),
+  longAdd([ 0xf, 0xf, 0xd ], [ 1, 2 ], 16),
 ]);
-console.log([
-  longAdd([ 1, 2, 3 ], [ 4 ], 5), longAdd([ 4 ], [ 1, 2, 3 ], 5),
-  (parseInt('123', 5) / parseInt('1000', 5) + 4 / parseInt('10', 5))
-      .toString(5)
-      .slice(0, 10)
-]);
-// > [ { sum: [ 5, 2, 3 ], carry: false },
-// >  { sum: [ 5, 2, 3 ], carry: false } ]
-// > [ { sum: [ 0, 2, 3 ], carry: true },
-// >  { sum: [ 0, 2, 3 ], carry: true },
-// >  '1.02300000' ]
+// > [ { sum: [ 1, 1, 13 ], carry: true },
+// >  { sum: [ 1, 1, 13 ], carry: true } ]
 ~~~
-Minor programming note: addition in JavaScript floating-point and converting to base-5 using `Number.prototype.toString` for the check above results in a very long string due to numerical issues, so I truncate the result to 10 characters. Nonetheless, we confirm that (0.123)<sub>5</sub> + (0.4)<sub>5</sub> = (1.023)<sub>5</sub>.
+Previously we’d shown that 0x0.12 + 0x0.ffd = 0x1.11d. Since the returned `carry` is true, `longAdd`’s final solution is 0x1.11d (0xd = 13).
 
 ## Misc…
 Please don’t write code like the above, with chained `map`–`reduce`–`findIndex` insanity and quadratic searches—I’ve been thinking about these things for a bit and just wanted to throw something together. Here’s a more annotated version of both `toEmoji` and `fromEmoji`:
