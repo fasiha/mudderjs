@@ -492,20 +492,19 @@ console.log(decimal.stringToDigits('123'.split('')));
 // > [ 1, 2, 3 ]
 ~~~
 
-Finally, we achieve `parseInt`-parity with digits→number. The right-most digit is the coefficient for 1=`Math.pow(B, 0)`, and each successive digit to its left scales `Math.pow(B, index)`. In code:
+Finally, we achieve `parseInt`-parity with the digits→number converter. Each element in the digits array is multiplied by a power of base `B` and summed. In code:
 ~~~js
 SymbolTable.prototype.digitsToNumber = function(digits, base) {
   base = base || this.maxBase;
-  let result = 0, currentBase = 1;
-  // Start at the right end (ones place) and move leftwards
-  for (let idx = digits.length - 1; idx >= 0; idx--) {
-    result += digits[idx] * currentBase;
-    currentBase *= base;
-  }
-  return result
+  let currBase = 1;
+  return digits.reduceRight((accum, curr) => {
+    let ret = accum + curr * currBase;
+    currBase *= base;
+    return ret;
+  }, 0);
 };
 ~~~
-A programmatic note: I chose to use an ugly old-style `for`-loop to start at the last digit and move to the first, and didn’t want to `reverse` the array. Also because `Math.pow(base, idx - 1)` is more expensive than `currentBase *= base` (this is also why I didn’t use a `reduce`).
+A programmatic note: I used `Array.prototype.reduceRight` to loop from the *end* of `digits` to the beginning and avoid manual management of the index-to-power relationship. Also, this let me replace an expensive `Math.pow` call each iteration with a cheap multiply.
 
 Let’s test it, both with 123 = 0x7B (hexadecimal base-16 numbers are commonly prefixed by `0x`):
 ~~~js
@@ -620,14 +619,15 @@ Recall long addition from your youth. You add two base-10 decimal numbers by
 1. then moving left,
 1. taking care to carry the tens place of a sum if it was ≥10.
 
-Example: 0.12 + 0.456:
+**Example base-10** Let’s add 0.12 + 0.456:
 ```
   0.12
 + 0.456
   -----
   0.576     ⟸ found 6 first, then 7, then finally 5.
 ```
-An example with carries: 0.12 + 0.999:
+
+An example complicated by carries: 0.12 + 0.999:
 ```
   [1 1]     ⟸ carries
   0.12
@@ -636,7 +636,7 @@ An example with carries: 0.12 + 0.999:
   1.119    ⟸ found 9 first, then to the left
 ```
 
-Let’s try an example in hexadecimal radix-16: 0x0.12 + 0x0.9ab:
+**Example base-16** Here’s a hexadecimal example: 0x0.12 + 0x0.9ab. Recall that the “0x” in the beginning tells you the following number is base-16, its digits going from 0 to ‘f’=15, so `0x1 + 0x9 = 0xa`, and `0xf + 0x1 = 0x10`. Other than that, it’s the same long-addition algorithm:
 ```
   0.12
 + 0.9ab
@@ -648,7 +648,8 @@ Let’s check that this is right:
 console.log((0x12 / 0x100 + 0x9ab / 0x1000).toString(16));
 // > 0.acb
 ~~~
-Here’s an example with carries:
+
+Here’s an example with carries, 0x0.12 + 0x0.ffd:
 ```
  [1 1]     ⟸ hexadecimal carries
   0.12
@@ -661,42 +662,59 @@ Checking this too:
 console.log((0x12 / 0x100 + 0xffd / 0x1000).toString(16));
 // > 1.11d
 ~~~
-So with non-decimal bases, we just have to understand that, if after adding a column we get `sum = digit_1 + digit_2 + carry ≥ B`, carry the `1` to the next column to the left, and write down `B - sum` for the current column. The carry will always be 0 or 1, since biggest possible carry would be from adding `(B - 1) + (B - 1) = 1 * B + (B - 2) * 1` in a single column: in this case, you’d write down `B - 2` for that column and carry the 1 that multiplies `B`.
+The carry digit will be either 0 or 1. Why? Because the biggest carry would come from adding the biggest digits: `(B - 1) + (B - 1) = (1) * B + (B - 2) * 1` which would be written with two digits, 1 and `B - 2`. In hexadecimal, this means `0xf + 0xf = 0x1e = 16 + 14 = 30 ✓`. So if you had a column in long-addition of 0xf, 0xf, and a carry of 0x1, the sum will be 0x1f, and you’d write ‘f’ underneath the line and carry that ‘1’ to the column to the left.
 
-Let’s implement it in JavaScript!
+**Code** Thinking about code to long-add two arrays of digits, assuming the radix-point to the left of the first element of both, and where each digit is a JavaScript integer between 0 and `B - 1`, I wanted to get three things right: (1) determining when a carry happens—when the sum of two elements was `≥B`; (2) tracking the carry as it moved leftwards; and (3) handling arrays of different lengths.
+
+How do I want to deal with arrays of differing lengths? In the examples above, when a column lacked a number from one of the summands, we pretended it was zero. One option could be to pad a shorter digits array with zeros. But that’s just equivalent to *copying* the trailing elements of the longer array to the result array. My plan is to *make a copy* of the longer array, then update its elements with the result of adding each digit from the shorter array. Because we have to work from the *ends* of both arrays to the beginning, we’ll use `Array.prototype.reduceRight` again:
 ~~~js
-function longAdd(a, b, base) {
-  // sum starts out as copy of longer
-  const sum = a.length < b.length ? b.slice() : a.slice();
-  // short is a reference to the shorter
-  const short = !(a.length < b.length) ? b : a;
-
-  let carry = 0;
-  for (let idx = short.length - 1; idx >= 0; idx--) {
-    let tmp = sum[idx] + short[idx] + carry;
-    if (tmp >= base) {
-      sum[idx] = tmp - base;
-      carry = 1;
-    } else {
-      sum[idx] = tmp;
-      carry = 0;
-    }
+function longAdd(long, short, base) {
+  if (long.length < short.length) {
+    [long, short] = [ short, long ];
   }
-  return {sum, overflow : carry};
-}
+  let carry = false, sum = long.slice(); // `sum` = copy of `long`
+  short.reduceRight((_, shorti, i) => {
+    const result = shorti + long[i] + carry;
+    carry = result >= base;
+    sum[i] = carry ? result - base : result;
+  }, null);
+  return {sum, carry};
+};
 ~~~
+Programming note: I used `reduceRight`, a very functional-programming-y technique, in a very mutable way above, essentially as a `for`-loop, except `reduceRight` keeps track of the indexing starting at the end of arrays.
 
+I use a single boolean to indicate whether there’s a carry digit. It’s returned, along with a new array of digits representing the sum. Just like long-addition by hand, the radix-point is to the left of the `sum` array of digits—but, again just like long-addition by hand, if the final `carry` is true, there’s a “1” to the left of that radix point!
+
+An example will help clear this up. Again, I’d like to emphasize that, for purposes of this base-`B` long-addition, an array of digits, like `[1, 2, 3]` or `[4]`, represents the number (0.123)<sub>`B`</sub> or (0.4)<sub>`B`</sub> respectively. In decimal base-10, (0.123)<sub>10</sub> + (0.4)<sub>10</sub> = (0.523)<sub>10</sub>. We also check (0.123)<sub>5</sub> + (0.4)<sub>5</sub> in quinary, base-5:
+~~~js
+console.log([
+  longAdd([ 1, 2, 3 ], [ 4 ], 10),
+  longAdd([ 4 ], [ 1, 2, 3 ], 10),
+]);
+console.log([
+  longAdd([ 1, 2, 3 ], [ 4 ], 5), longAdd([ 4 ], [ 1, 2, 3 ], 5),
+  (parseInt('123', 5) / parseInt('1000', 5) + 4 / parseInt('10', 5))
+      .toString(5)
+      .slice(0, 10)
+]);
+// > [ { sum: [ 5, 2, 3 ], carry: false },
+// >  { sum: [ 5, 2, 3 ], carry: false } ]
+// > [ { sum: [ 0, 2, 3 ], carry: true },
+// >  { sum: [ 0, 2, 3 ], carry: true },
+// >  '1.02300000' ]
+~~~
+Minor programming note: addition in JavaScript floating-point and converting to base-5 using `Number.prototype.toString` for the check above results in a very long string due to numerical issues, so I truncate the result to 10 characters. Nonetheless, we confirm that (0.123)<sub>5</sub> + (0.4)<sub>5</sub> = (1.023)<sub>5</sub>.
 
 ## Misc…
 Please don’t write code like the above, with chained `map`–`reduce`–`findIndex` insanity and quadratic searches—I’ve been thinking about these things for a bit and just wanted to throw something together. Here’s a more annotated version of both `toEmoji` and `fromEmoji`:
 
 First, let’s make a symbol table `Map` (ES2015 hash table) to go from symbols to numbers ≤`B=3`. This lets us avoid the horrible `findIndex` in `fromEmoi`.
 ~~~js
-var arrToSymbolMap = symbols => new Map(symbols.map((str, idx) => [str, idx]))
-                                    .set('array', symbols)
-                                    .set('base', symbols.length);
-console.log(arrToSymbolMap('🍌🍳☕️,🍱,🍣🍮'.split(',')));
-~~~
+ var arrToSymbolMap = symbols => new Map(symbols.map((str, idx) => [str, idx]))
+                                     .set('array', symbols)
+                                     .set('base', symbols.length);
+ console.log(arrToSymbolMap('🍌🍳☕️,🍱,🍣🍮'.split(',')));
+ ~~~
 The map includes a key `'array'` with value of the initial array to serve as the opposite, a mapping from numbers to symbols.
 
 (Aside: we could have been very modern and used ES2015 `Symbol.for('array')` instead of the string `'array'` as the key.)
@@ -1110,3 +1128,51 @@ longDiv([2,0, 0], 6, 10)
 ##References
 
 Cuneiform: http://it.stlawu.edu/~dmelvill/mesomath/Numbers.html and https://en.wikipedia.org/wiki/Sexagesimal#Babylonian_mathematics and Cuneiform Composite from http://oracc.museum.upenn.edu/doc/help/visitingoracc/fonts/index.html
+
+
+## Unused functions
+~~~js
+// no-hydrogen
+function rightpad(arr, finalLength, val) {
+  const padlen = Math.max(0, finalLength - arr.length);
+  return arr.concat(Array(padlen).fill(val || 0));
+}
+
+function longAddxxxxxx(a, b, base) {
+  if (a.length < b.length) {
+    a = rightpad(a, b.length);
+  } else if (b.length < a.length) {
+    b = rightpad(b, a.length);
+  }
+  const res = a.reduceRight((accum, ai, i) => {
+    const sum = b[i] + ai + accum.carry;
+    return {
+      sum : accum.sum.concat(sum < base ? sum : sum - base),
+      carry : sum >= base
+    };
+  }, {sum : [], carry : 0});
+  res.sum.reverse();
+  return res;
+}
+
+function longAddxxx(a, b, base) {
+  // sum starts out as copy of longer
+  const sum = a.length < b.length ? b.slice() : a.slice();
+  // short is a reference to the shorter
+  const short = !(a.length < b.length) ? b : a;
+
+  let carry = 0;
+  for (let idx = short.length - 1; idx >= 0; idx--) {
+    let tmp = sum[idx] + short[idx] + carry;
+    if (tmp >= base) {
+      sum[idx] = tmp - base;
+      carry = 1;
+    } else {
+      sum[idx] = tmp;
+      carry = 0;
+    }
+  }
+  return {sum, overflow : carry};
+};
+
+~~~
