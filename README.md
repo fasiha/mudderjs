@@ -685,7 +685,7 @@ Programming note: I used `reduceRight`, a very functional-programming-y techniqu
 
 I use a single boolean to indicate whether there’s a carry digit. It’s returned, along with a new array of digits representing the sum. Just like long-addition by hand, the radix-point is to the left of the `sum` array of digits—but, again just like long-addition by hand, if the final `carry` is true, there’s a “1” to the left of that radix point!
 
-An example will help clear this up. Again, I’d like to emphasize that, for purposes of this base-`B` long-addition, an array of digits, like `[1, 2]` or `[15, 15, 13]`, represents the number (0.12)<sub>`B`</sub> or (0.ffd)<sub>`B`</sub> respectively. Let’s check the hexadecimal answer above:
+An example will help clear this up. Again, I’d like to emphasize that, for purposes of this base-`B` long-addition, an array of digits, like `[1, 2]` or `[15, 15, 13]`, represents the number (0.12)<sub>`B`</sub> or (0.ffd)<sub>`B`</sub> respectively. Let’s check the hexadecimal base-16 answer from before:
 ~~~js
 console.log([
   longAdd([ 1, 2 ], [ 0xf, 0xf, 0xd ], 16),
@@ -694,427 +694,152 @@ console.log([
 // > [ { sum: [ 1, 1, 13 ], carry: true },
 // >  { sum: [ 1, 1, 13 ], carry: true } ]
 ~~~
-Previously we’d shown that 0x0.12 + 0x0.ffd = 0x1.11d. Since the returned `carry` is true, `longAdd`’s final solution is 0x1.11d (0xd = 13).
+Previously we’d shown that 0x0.12 + 0x0.ffd = 0x1.11d. Since the returned `carry` is true, `longAdd`’s final solution is 0x1.11d (since 0xd = 13).
 
-## Misc…
-Please don’t write code like the above, with chained `map`–`reduce`–`findIndex` insanity and quadratic searches—I’ve been thinking about these things for a bit and just wanted to throw something together. Here’s a more annotated version of both `toEmoji` and `fromEmoji`:
+### Dividing a digits array with a scalar
+Consider two numbers, `a` and `b`. Their mean is `(a + b) / 2`. This mean comes from splitting the interval between `a` and `b` into two pieces. `N` evenly-spaced points between `a` and `b` (not including these) comes from splitting the interval into `N + 1` pieces: `a + (b - a) / (N + 1) * i`, where `i` runs from `1` to `N`.
 
-First, let’s make a symbol table `Map` (ES2015 hash table) to go from symbols to numbers ≤`B=3`. This lets us avoid the horrible `findIndex` in `fromEmoi`.
+Let’s do some arithmetic massaging:
+```
+a + (b - a) / (N + 1) * i = ((N + 1) * a + b * i - a * i) / (N + 1)
+                          = (a / (N + 1)) * (N + 1 - i) + (b / (N + 1)) * i
+```
+
+We’d like the `N ≥ 1` evenly-spaced numbers between `a` and `b`, for our case where `0 ≤ a, b < 1` and both are expressed as arrays of digits. A key element of this is dividing an array of digits by a scalar, which can be quite large (`N + 1` potentially much larger than base-`B`).
+
 ~~~js
- var arrToSymbolMap = symbols => new Map(symbols.map((str, idx) => [str, idx]))
-                                     .set('array', symbols)
-                                     .set('base', symbols.length);
- console.log(arrToSymbolMap('🍌🍳☕️,🍱,🍣🍮'.split(',')));
- ~~~
-The map includes a key `'array'` with value of the initial array to serve as the opposite, a mapping from numbers to symbols.
-
-(Aside: we could have been very modern and used ES2015 `Symbol.for('array')` instead of the string `'array'` as the key.)
-
-With this `Map` representing the symbol table, and helper functions `replaceAll` and `symbolMapToRegexp`…
-~~~js
-// no-hydrogen
-function lexdist(a,b) {
-  const minlen = Math.min(a.length, b.length);
-  for (let i = 0; i < minlen; i++){
-    if (a[i] !== b[i]) {
-      return a[i] - b[i];
-    }
-  }
-  return a.length - b.length;
-}
-
-var mealMap = arrToSymbolMap('🍌🍳☕️,🍱,🍣🍮'.split(','));
-
-var num2numDigitsInBase = (num, b) =>
-    Math.max(1, Math.ceil(Math.log(num + 1) / Math.log(b)));
-
-var num2digits = (num, base) => {
-  var numDigits = num2numDigitsInBase(num, base);
-  var digits = Array(numDigits);
-  for (let i = numDigits - 1; i >= 0; i--) {
-    digits[i] = num % base;
-    num = Math.floor(num / base);
-  }
-  return digits;
-};
-num2digits(3 * 3 * 3 * 3, 2);
-
-var digits2string = (digits, smap) =>
-    digits.map(n => smap.get('array')[n]).join('');
-
-digits2string(num2digits(3 * 3 * 3 * 3, 2), arrToSymbolMap('ab'.split('')));
-
-var string2digits = (str, smap) => {
-  var re = new RegExp('(' + smap.get('array').join('|') + ')', 'g');
-  return str.match(re).map(symbol => smap.get(symbol));
-};
-
-var base62 = arrToSymbolMap(
-    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".split(''));
-var az = arrToSymbolMap("abcdefghijklmnopqrstuvwxyz".split(''));
-digits2string(string2digits('abcakljafs', az), az);
-
-string2digits('baaa', az);
-string2digits('bcde', az);
-
-var digits2num = (digits, smap) => {
-  var base = smap.get('base');
-  return digits.reduce((prev, curr, i) =>
-                           prev + curr * Math.pow(base, digits.length - i - 1),
-                       0);
-};
-digits2num([ 1, 25 ], az);
-
-
-function longSub(big, small, base) {
-  var dist = lexdist(big, small);
-  if (dist < 0) {
-    [big, small] = [ small, big ];
-  } else if (dist === 0) {
-    return [ 0 ];
-  }
-}
-
-
-
-function longAdd(a, b, base) {
-  // sum starts out as copy of longer
-  const sum = a.length < b.length ? b.slice() : a.slice();
-  // short is a reference to the shorter
-  const short = !(a.length < b.length) ? b : a;
-
-  let carry = 0;
-  for (let idx = short.length - 1; idx >= 0; idx--) {
-    let tmp = sum[idx] + short[idx] + carry;
-    if (tmp >= base) {
-      sum[idx] = tmp - base;
-      carry = 1;
-    } else {
-      sum[idx] = tmp;
-      carry = 0;
-    }
-  }
-  return {sum : sum, overflow : carry};
-}
-
 function longDiv(numeratorArr, den, base) {
   return numeratorArr.reduce((prev, curr) => {
     let newNum = curr + prev.rem * base;
     return {
-      div : prev.div.concat(Math.floor(newNum / den)),
-      rem : newNum % den,
-      den
+      res : prev.res.concat(Math.floor(newNum / den)),
+      rem : newNum % den, den
     };
-  }, {div : [], rem : 0, den});
+  }, {res : [], rem : 0, den});
 }
+~~~
+~~~js
+longDiv([ 1, 0 ], 2, 10);
+// > { res: [ 0, 5 ], rem: 0, den: 2 }
+~~~
 
-function longMean(a, b, base) {
-  const {sum, overflow} = longAdd(b, a, base);
-
-  let {div : mean, rem} = longDiv(sum, 2, base);
-  if (rem) {
-    mean.push(Math.ceil(base / 2));
+~~~js
+function longAddSameLen(a, b, base, rem, den) {
+  if (a.length !== b.length) {
+    throw new Error('same length arrays needed');
   }
-  if (overflow) {
-    mean[0] += Math.floor(base / 2);
+  let carry = rem >= den, res = b.slice();
+  if (carry) {
+    rem -= den;
   }
-
-  return mean;
-}
-
-
-
-var Big = require('big.js');
-digits2big = (digits, base) =>
-    digits.reduce((prev, curr, i) => prev.plus(
-                      Big(curr).times(Big(base).pow(digits.length - i - 1))),
-                  Big(0));
-digits2big(string2digits('aba', az), az.get('base'));
-
-var big2digits1 = (num, base) => {
-  var numDigits =
-      Math.ceil(num.c.length / Math.log10(base)) + 1; // 'emmy'+'ammy'
-  var digits = Array.from(Array(numDigits), x => 0);
-  for (let i = numDigits - 1; i >= 0; i--) {
-    digits[i] = Number(num.mod(base));
-    num = num.div(base).round(null, 0);
-  }
-  return digits;
+  a.reduceRight((_, ai, i) => {
+    const result = ai + b[i] + carry;
+    carry = result >= base;
+    res[i] = carry ? result - base : result;
+  }, null);
+  return {res, carry, rem, den};
 };
- var big2digits = (num, base) => {
-  if (num.cmp(Big(0)) === 0) {
-    return [ 0 ];
-  }
-  var digits = [];
-  while (num >= 1) {
-    digits.unshift(Number(num.mod(base)));
-    num = num.div(base).round(null, 0);
-  }
-  return digits;
-};
-num2digits(0, 2);
-num2digits(3 * 3 * 3 * 3, 2);
-big2digits(Big(3 * 3 * 3 * 3), 2)
-big2digits(Big(5.5), 2);
-big2digits(Big(5), 2);
-big2digits(Big(1), 26);
-big2digits(Big(0), 26);
 
-var zeros = n => Array.from(Array(Math.max(0, n)), _ => 0);
-
-
-var doStrings = (s1, s2, smap, approximate) => {
-  var d1, d2;
-  if (s1) {
-    d1 = string2digits(s1, smap);
-  } else {
-    d1 = [ 0 ];
-  }
-  if (s2) {
-    d2 = string2digits(s2, smap);
-  } else {
-    d2 = zeros(d1.length);
-    d2.unshift(1);
-    d1.unshift(0);
-  }
-  var maxLen = Math.max(d1.length, d2.length);
-  if (d2.length < maxLen) {
-    d2.push(...zeros(maxLen - d2.length));
-  } else if (d1.length < maxLen) {
-    d1.push(...zeros(maxLen - d1.length));
-  }
-  var base = smap.get('base');
-  var b1 = digits2big(d1, base);
-  var b2 = digits2big(d2, base);
-  var mean = b1.plus(b2).div(2);
-
-  var round = mean.round(null, 0);
-  var remainder = mean.minus(round);
-
-  var whole = big2digits(round, base);
-  whole.unshift(...zeros(maxLen - (s2 ? 0 : 1) - whole.length));
-  var withremainder = whole.concat(Number(remainder) > 0 ? Math.ceil(base / 2)
-                                                         : []); // ceil for 2
-
-  if (approximate) {
-    if (lexdist(d1, d2) > 0) {
-      [d2, d1] = [ d1, d2 ];
-    }
-    for (var i = 0; i < d1.length; i++) {
-      if (d1[i] < withremainder[i]) {
-        return digits2string(withremainder.slice(0, i+1), smap);
-      }
-    }
-    for (; i < withremainder.length; i++) {
-      if (withremainder[i]) {
-        break;
-      }
-    }
-    return digits2string(withremainder.slice(0, i+1), smap);
-  }
-
-  return digits2string(withremainder, smap);; // replace trailing 0s
-};
-doStrings('b', 'bd', az)
-doStrings('ba', 'b', az)
-doStrings('cat', 'doggie', az)
-doStrings('doggie', 'cat', az,true)
-doStrings('ammy', 'emmy', az)
-doStrings('aammy', 'aally', az)
-doStrings('emmy', 'ally', az)
-doStrings('bazi', 'ally', az)
-doStrings('b','azz',az);
-doStrings('a','b',az);
-doStrings(null,'b',az);
-doStrings('z','b',az);
-doStrings('b', null, az)
-doStrings(null, null, az)
-doStrings('db', 'cz', az)
-doStrings('asd', 'asdb', az,true);
-
-string2digits('wqe', az)
-
-
-function doLong(s1, s2, smap, approximate) {
-  var d1, d2;
-  if (s1) {
-    d1 = string2digits(s1, smap);
-  } else {
-    d1 = [ 0 ];
-  }
-  if (s2) {
-    d2 = string2digits(s2, smap);
-  } else {
-    d2 = [ 1 ];
-    d1.unshift(0);
-  }
-
-  var mean = longMean(d1, d2, smap.get('base'));
-
-  while(mean[mean.length-1]===0) {
-    mean.pop();
-  }
-  if (mean.length===0){
-    throw new RangeError("Couldn't find non-empty midpoint. Did you ask for "+
-    "midpoint between two empty or zero-symbol strings?")
-  }
-
-  if (approximate) {
-    if (lexdist(d1, d2) > 0) {
-      [d2, d1] = [ d1, d2 ];
-    }
-    for (var i = 0; i < mean.length; i++) {
-      if ((i < d1.length && d1[i] < mean[i]) || (i >= d1.length && mean[i])) {
-        break;
-      }
-    }
-    return digits2string(mean.slice(s2 ? 0 : 1, i + 1), smap);
-  }
-  if (!s2) {
-    mean.shift();
-  }
-  return digits2string(mean, smap);
-}
-var nums = arrToSymbolMap('0123456789'.split(''));
-var bin = arrToSymbolMap('01'.split(''));
-var base36 = arrToSymbolMap('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''));
-doStrings('95', '9501', nums,true)
-doLong('89', '91', nums)
-doLong('89', '91', nums, true)
-doLong('95', null, nums,!true)
-doLong('b', null, az)
-doStrings('b', null, az)
-doLong('0','0',nums)
-
-console.log(Array.from(Array(1000)).reduce((prev,curr)=>doLong('A', prev, base62, true), 'y').length)
-doLong('b','y', base62)
-
-
-function subdivPow2(a, b, smap, n) {
-  var sols = [a , b];
-  for (let i=0; i<n;i++){
-    var tmp = [];
-    for (let j=0;j<sols.length-1;j++) {
-      tmp.push(doLong(sols[j], sols[j+1], smap, true));
-    }
-    sols = sols.concat(tmp)
-    sols.sort();
-  }
-  return sols;
+function rightpad(arr, finalLength, val) {
+  const padlen = Math.max(0, finalLength - arr.length);
+  return arr.concat(Array(padlen).fill(val || 0));
 }
 
-var tern = arrToSymbolMap('012'.split(''));
-
-subdivPow2('1','11',tern, 9)
-doLong('1','1000002',tern,true)
-([1,2,3].concat([10,20,30])).sort()
-
-function range0f(n, f) { return Array.from(Array(n), (_, i) => f(i)); }
-function range(n) { return Array.from(Array(n), (_, i) => i); }
-function empty(n) { return Array.from(Array(n)); }
-function zeros(n) { return Array.from(Array(n), () => 0); }
-function longAddRem(a, b, base) {
-  if (a.den !== b.den) {
-    throw new Error(
-        'unimplemented: adding fractions of different denominators');
+function longLinspace(a, b, base, N) {
+  if (a.length < b.length) {
+    a = rightpad(a, b.length);
+  } else if (b.length < a.length) {
+    b = rightpad(b, a.length);
   }
-  var res = longAdd(a.div, b.div, base);
-  if (res.overflow) {
-    throw new Error('unsupported: overflow add');
-  }
-  var remscale = Math.pow(base, Math.abs(a.div.length - b.div.length));
-  var rem = a.div.length < b.div.length ? remscale * a.rem + b.rem
-                                        : remscale * b.rem + a.rem;
-  while (rem >= a.den) {
-    rem -= a.den;
-    var tmp = zeros(res.sum.length);
-    tmp[tmp.length - 1] = 1;
-    res = longAdd(res.sum, tmp, base);
-    if (res.overflow) {
-      throw new Error('unsupported: overflow add');
-    }
-  }
-  return {div : res.sum, rem, den : a.den};
-}
-console.log(longAddRem({div : [ 4, 5 ], rem : 7, den : 12},
-                       {div : [ 1 ], rem : 7, den : 12}, 10))
-.45+(7/12)*1e-2 + .1+(7/12)*1e-1
-
-
-console.log(longAddRem({div: [4,5], rem:7, den:12}, {div:[1,0], rem:7, den:12}, 10))
-.45+(7/12)*1e-2 + .10+(7/12)*1e-2
-
-console.log(longAddRem({div: [4,5,6,7,8], rem:1, den:10}, {div:[1], rem:7, den:10}, 10))
-.45678+1/10*1e-5 + .1+7/10*1e-1
-
-function roundQuotientRemainder(sol, base) {
-  var places = Math.ceil(Math.log(sol.den) / Math.log(base));
-  var scale = Math.pow(10, places);
-  var rem = Math.round(sol.rem * scale / sol.den);
-  var remDigits = num2digits(rem, base);
-  return sol.div.concat(zeros(places - remDigits.length)).concat(remDigits);
-}
-.1 + .1/19
-roundQuotientRemainder({div: [1], rem: 1, den:19}, 10)
-
-function subdivLinear(a,b,smap, n) {
-  var base = smap.get('base');
-  var aN = longDiv(a, n, base);
-  var bN = longDiv(b, n, base);
-  var as = empty(n-1);
-  var bs = empty(n-1);
-  as[0] = aN;
-  bs[0] = bN;
-  for (var i = 1; i< n-1; i++) {
-    as[i] = longAddRem(aN, as[i-1], base);
-    bs[i] = longAddRem(bN, bs[i-1], base);
+  aDiv = longDiv(a, N + 1, base);
+  bDiv = longDiv(b, N + 1, base);
+  let as = [ aDiv ];
+  let bs = [ bDiv ];
+  for (let i = 2; i <= N; i++) {
+    as.push(longAddSameLen(as[i - 2].res, aDiv.res, base,
+                           aDiv.rem + as[i - 2].rem, N + 1));
+    bs.push(longAddSameLen(bs[i - 2].res, bDiv.res, base,
+                           bDiv.rem + bs[i - 2].rem, N + 1));
   }
   as.reverse();
-  var res = empty(n-1);
-  for (i = 0; i < n-1; i++) {
-    res[i] = longAddRem(as[i], bs[i], base);
-  }
-  return res;
+  return as.map((a, i) => longAddSameLen(a.res, bs[i].res, base,
+                                         a.rem + bs[i].rem, N + 1));
 }
-300/19
-[3,20,101].map(x=>1+Math.ceil(Math.log10(x)))
 
-subdivLinear([1], [2], nums, 19)
+function leftpad(arr, finalLength, val) {
+  const padlen = Math.max(0, finalLength - arr.length);
+  return Array(padlen).fill(val || 0).concat(arr);
+}
 
-range(19).map(i=>.1 + .1/19*i).map(x=>Math.round(x*10000)/10000)
-subdivLinear([1], [2], nums, 19).map(x=>roundQuotientRemainder(x, nums.get('base')))
-subdivLinear([9], [1], nums, 4)
+SymbolTable.prototype.roundFraction = function(numerator, denominator, base) {
+  base = base || this.maxBase;
+  var places = Math.ceil(Math.log(denominator) / Math.log(base));
+  var scale = Math.pow(base, places);
+  var scaled = Math.round(numerator / denominator * scale);
+  var digits = this.numberToDigits(scaled, base);
+  return leftpad(digits, places, 0);
+};
 
-subdivLinear([2], [4, 4], nums, 4)
-subdivLinear([2, 0], [4, 4], nums, 10)
-subdivLinear([2], [4, 4], nums, 10).map(x=>roundQuotientRemainder(x, nums.get('base')))
-subdivLinear([2, 0], [4, 4], nums, 10).map(x=>roundQuotientRemainder(x, nums.get('base')))
+function chopDigits(rock, water) {
+  for (let idx = 0; idx < water.length; idx++) {
+    if (water[idx] && rock[idx] !== water[idx]) {
+      return water.slice(0, idx + 1);
+    }
+  }
+  return water;
+}
 
-longDiv([2], 6, 10)
-longDiv([2, 0], 6, 10)
-longDiv([2,0, 0], 6, 10)
+function chopSuccessiveDigits(strings) {
+  return strings.slice(1).reduce(
+      (accum, curr) =>
+          accum.concat([ chopDigits(accum[accum.length - 1], curr) ]),
+      [ strings[0] ]);
+}
 
-'2' < '24'
-'20' < '24'
-'24' < '28'
-'28' < '32'
-'32' < '36'
-'36' < '40'
-'40' < '44'
-'36' < '4'
-'4' < '44'
-// A symbol map might contain an 'escape hatch' symbol, i.e., one that is only
-// used to find midpoints between equal strings. Such an escape hatch symbol
-// would be one that is not in the standard symbol list. Using this escape hatch
-// would effectively increase the base of this string, and indeed all strings,
-// so it would be added to the symbol list, and future midpoints ought to use
-// it---if the escape hatch didn't become a regular symbol, how could the
-// midpoint system translate a string containing it to a number?
+function truncateLexHigher(lo, hi) {
+  const swapped = lo > hi;
+  if (swapped) {
+    [lo, hi] = [ hi, lo ];
+  }
+  hi = hi.slice(0, lo.length + 1);
+  if (swapped) {
+    return [ hi, lo ];
+  }
+  return [ lo, hi ];
+}
 
-'qwe' < 'qwea'
-// the problem with 'ba' is that there’s no string that can go between it and 'b'. This kind of implies that they’re the same string, given a-z symbols. I mean, if two integers have no integer between them, they're the same too right? It just so happens that, in lexicographic distance, sure 'b' < 'ba', but that doesn't change the underlying fact---integer 5 and 005 don't stop being the same even though their lexicographic distance is different.
+SymbolTable.prototype.mudder = function(a, b, base, numStrings) {
+  base = base || this.maxBase;
+  [a, b] = truncateLexHigher(a, b);
+  const ad = this.stringToDigits(a, base);
+  const bd = this.stringToDigits(b, base);
+  const intermediateDigits = longLinspace(ad, bd, base, numStrings || 1);
+  let finalDigits = intermediateDigits.map(
+      v => v.res.concat(this.roundFraction(v.rem, v.den, base)));
+  finalDigits.unshift(ad);
+  return chopSuccessiveDigits(finalDigits)
+      .slice(1)
+      .map(v => this.digitsToString(v));
+};
+
+var B = 6;
+var N = 9;
+
+Array.from(Array(N + 2), (_, i) => (i) / (N + 1) / B + 1 / B)
+    .map(x => x.toString(B))
+
+longLinspace([ 1 ], [ 2 ], B, N);
+longLinspace([ 2 ], [ 1 ], B, N);
+longLinspace([ 1 ], [ 2 ], B, N)
+    .map(o => o.res.concat(decimal.roundFraction(o.rem, o.den, B)));
+
+decimal.mudder('1', '2', B, N);
+decimal.mudder('2', '1', B, N);
+
+decimal.mudder('2', '34502105342105402154', B, 10)
 
 ~~~
+
 
 ##References
 
@@ -1166,4 +891,8 @@ function longAddxxx(a, b, base) {
   return {sum, overflow : carry};
 };
 
+function linspace(a, b, num) {
+  const δ = (b - a) / (num - 1);
+  return Array.from(Array(num), (_, i) => a + δ * i);
+}
 ~~~
