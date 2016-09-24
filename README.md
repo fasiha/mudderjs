@@ -590,8 +590,8 @@ This might seem confusing! Arbitrary! Over-complicated! But I think every piece 
 
 Instead of these two strings representing integers with the radix-point (decimal point) after them, shift your perspective so that the radix-point is on the left:
 
-1. Not 2, but 0.2 = 2 ÷ 10.
-1. Not 44, but 0.44 = 44 ÷ 100.
+1. Not 2, but 0.2 (which is 2 ÷ 10).
+1. Not 44, but 0.44 (which is 44 ÷ 100).
 
 In other words, pretend both numbers have been divided by base `B` until they first drop below 1.
 
@@ -607,7 +607,35 @@ console.log(intermediates);
 ~~~
 Ignoring floating-point-precision problems, `'2' < '24' < '28' < '32' < '36' < '40' < '44'`.
 
+Initially when developing this library, the `N > 1` case wasn’t important to me—I just wanted the average between two values: `(a + b) / 2`, so I only cared about adding two digits arrays (long-addition) and dividing by a scalar (long-division). However, the `N > 1` case is really useful, so Mudder.js finds `N ≥ 1` evenly-spaced numbers between `a` and `b` using the equation, `a + (b - a) / (N + 1) * i`, for `i` running from 1 to `N`.
+
+(Example—from ranking database entries. I frequently want to insert not just one new entry between two currently-adjacent entries. I want to insert `N ≫ 1` new entries. This *could* be faked by recursively finding averages, splitting the `a`–`b` interval into power-of-two sub-intervals. For example, to get `N = 5` numbers between 0.1 and 0.2, evaluate `[0.1, 0.2]`→`[0.1, 0.15, 0.2]`→`[0.1, 0.125, 0.15, 0.175, 0.25]`→`[0.1, 0.1125, 0.125, 0.1375, 0.15, 0.1625, 0.175, 0.1875, 0.2]`, then pick 5 of the 7 interior numbers. If you just pick the first five interior points, `0.1125, 0.125, 0.1375, 0.15, 0.1625` to return, there will be a big gap between the last point 0.1625 and the upper-bound 0.2. For this reason, Mudder.js directly computes `N` evenly-spaced numbers between `a` and `b`.)
+
+Evaluating `a + (b - a) / (N + 1) * i`, with `i = 1..N` and for `a` and `b` numbers in base-`B` between 0 and 1 represented by digits arrays (each element of which is between 0 and `B - 1`), as it’s written there, requires
+
+- adding digits arrays (long-addition),
+- subtracting digits arrays (long-subtraction),
+- multiplying and/or dividing digits arrays by scalars (long-multiplication and/or long-division).
+
+The mean, `(a + b) / 2`, can be achieved with just long-addition and long-division by 2. I did not want to do figure out much beyond this just to evaluate `a + (b - a) / (N + 1) * i`—if this expression was too much trouble, I could just recursively evaluate the mean.
+
+Let’s do some arithmetic massaging of the expression for `N` evenly-spaced interior points between `a` and `b`:
+```
+a + (b - a) / (N + 1) * i = ((N + 1) * a + b * i - a * i) / (N + 1)
+                          = (a / (N + 1)) * (N + 1 - i) + (b / (N + 1)) * i
+```
+The original expression can be written in several other ways that seem more attractive or less attractive than the original, but the last one is, I think, the simplest to implement: it needs long-division by arbitrary integers to divide `a / (N + 1)` and `b / (N + 1)`, then long-addition to generate the two sequences of `[a/(N+1), 2 * a/(N+1), 3 * a/(N+1), ..., , N * a/(N+1)]` and similarly for `b`.
+
+Let’s implement long-division with remainders, and then show how to do long-addition in the presence of remainders.
+
+---
+
+
 The same idea works for bases other than `B = 10`. It’s just that adding and dividing becomes a *bit* more complicated in non-decimal bases. Let’s write routines that add two digits arrays, and that can divide a digit array by a scalar, both in base-`B`.
+
+
+
+
 
 ### Adding digits arrays
 Let’s re-create the scene. We started with two strings. We use a symbol table containing `B` entries to convert the strings to two arrays of digits, each element of which is a regular JavaScript integer between 0 and `B - 1`. *We are going to pretend that the digits have a radix-point before the first element* and we want to *add* the two sets of digits.
