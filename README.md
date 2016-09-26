@@ -173,12 +173,13 @@ For both the broader problem of lexicographically interior strings, as well as t
 1. **an array of strings** To specify multi-character symbols such as emoji (which `String.split` will butcher), or whole words. Quaternary (radix-4) Roman-numeral example: `new SymbolTable('_,I,II,III'.split(','))`.
 1. **an array of strings, _plus_ a map of stringy symbols to numbers** This would let us specify fully-generic symbol tables like `parseInt`’s, where both `'F'` and `'f'` correspond to 15. The array uniquely sends numbers to strings, and the map sends ≥1 strings to numbers. The quaternary Roman-numeral example capable of ingesting lower-case letters:
 ~~~js
-new SymbolTable('_,I,II,III'.split(','), new Map([  // no-hydrogen
+new SymbolTable('_,I,II,III'.split(','), new Map([
                   [ '_', 0 ],                // zero
                   [ 'I', 1 ], [ 'i', 1 ],    // 1, lower AND upper case!
                   [ 'II', 2 ], [ 'ii', 2 ],  // 2
                   [ 'III', 3 ], [ 'iii', 3 ] // 3
                 ]));
+// no-hydrogen
 ~~~
 
 Let’s resist the temptation to be avant-garde: let’s agree that, to be valid, a symbol table must include symbols for *all* numbers between 0 and some maximum, with none skipped. `B` (for “base”) unique numbers lets the symbol table define number systems between radix-2 (binary) up to radix-`B`. JavaScript’s implicit symbol table handles `B≤36`, but as the examples above show, we don’t have to be restricted to base-36.
@@ -223,12 +224,13 @@ function isPrefixCode(strings) {
   }
   return true;
 }
+// < export mudder.js
 ~~~
 As with most mundane-seeming things, there’s some subtlety here. Do you see how, at `[🍅]` above, we skip comparing the same strings?—that part’s not tricky, that’s absolutely needed. But because of this, if the input set contains *repeats*, this function will implicitly treat those repeats as the *same* symbol.
 ~~~js
-console.log(isPrefixCode('a,b,b,b,b,b'.split(',')) ? 'prefix code!'
+console.log(isPrefixCode('a,b,b,b,b,b'.split(',')) ? 'is prefix code!'
                                                    : 'NOT PREFIX CODE 😷');
-// > prefix code!
+// > is prefix code!
 ~~~
 One alternative might be to throw an exception upon detecting repeat symbols. Or: instead of comparing the strings themselves at `[🍅]`, compare indexes—this will declare sets with repeats as non-prefix-free, but that would imply that there was some sense in treating `'b'` and `'b'` as different numbers.
 
@@ -259,6 +261,7 @@ function isPrefixCodeLogLinear(strings) {
   }
   return true;
 }
+// < export mudder.js
 ~~~
 It was a bit of wild intuition to try this, but it has been confirmed to work: proof by internet, courtesy of [@KWillets on Computer Science StackExchange](http://cs.stackexchange.com/a/63313/8216).
 
@@ -282,6 +285,7 @@ console.timeEnd('log');
 Yes indeed, the log-linear approach using a sort is maybe ~100× faster than the quadratic approach using a double-loop. So let’s use the faster one:
 ~~~js
 isPrefixCode = isPrefixCodeLogLinear;
+// < export mudder.js
 ~~~
 
 ### Symbol table object constructor
@@ -349,6 +353,7 @@ function SymbolTable(symbolsArr, symbolsMap) {
   this.maxBase = this.num2sym.length;
   this.isPrefixCode = isPrefixCode(symbolsArr);
 }
+// < export mudder.js
 ~~~
 
 A programmatic note: around `[⛈]` we’re making sure that forgetting `new` when calling `SymbolTable` will throw an exception. It’s a simple solution to the [JavaScript constructor problem](http://raganwald.com/2014/07/09/javascript-constructor-problem.html#solution-kill-it-with-fire)
@@ -359,6 +364,7 @@ var entries = require('object.entries');
 if (!Object.entries) {
   entries.shim();
 }
+// < export mudder.js
 ~~~
 
 Now.
@@ -415,6 +421,7 @@ SymbolTable.prototype.numberToDigits = function(num, base) {
   }
   return digits.length ? digits.reverse() : [ 0 ];
 };
+// < export mudder.js
 ~~~
 There’s a bit of incidental complexity here. In current JavaScript engines, [`push`ing](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/push) scalars to the end of an array is usually much faster than [`unshift`ing](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/unshift) scalars to its beginning. In my case:
 ~~~js
@@ -459,6 +466,7 @@ This makes me want to implement digits→string to get `Number.prototype.toStrin
 SymbolTable.prototype.digitsToString = function(digits) {
   return digits.map(n => this.num2sym[n]).join('');
 };
+// < export mudder.js
 ~~~
 This function doesn’t is independent of what base to operate on. It’s just blindly replacing numbers with strings using the one-to-one `SymbolTable.num2sym` array.
 
@@ -483,6 +491,7 @@ SymbolTable.prototype.stringToDigits = function(string) {
   }
   return string.map(symbol => this.sym2num.get(symbol));
 };
+// < export mudder.js
 ~~~
 Again, this operation is independent of the base. It’s just a table lookup, and involves no arithmetic.
 ~~~js
@@ -503,6 +512,7 @@ SymbolTable.prototype.digitsToNumber = function(digits, base) {
     return ret;
   }, 0);
 };
+// < export mudder.js
 ~~~
 A programmatic note: I used `Array.prototype.reduceRight` to loop from the *end* of `digits` to the beginning and avoid manual management of the index-to-power relationship. Also, this let me replace an expensive `Math.pow` call each iteration with a cheap multiply.
 
@@ -745,6 +755,7 @@ function longDiv(numeratorArr, den, base) {
     };
   }, {res : [], rem : 0, den});
 }
+// < export mudder.js
 ~~~
 ~~~js
 longDiv([ 1, 0 ], 2, 10);
@@ -849,6 +860,10 @@ SymbolTable.prototype.mudder = function(a, b, base, numStrings) {
       .slice(1)
       .map(v => this.digitsToString(v));
 };
+// < export mudder.js
+~~~
+
+~~~js
 
 var B = 6;
 var N = 9;
@@ -868,6 +883,23 @@ decimal.mudder('2', '34502105342105402154', B, 10)
 
 ~~~
 
+Let’s make a few useful symbol tables;
+
+~~~js
+var base62 = new SymbolTable(
+    '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz');
+var base36 = new SymbolTable('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+var alphaupper = new SymbolTable('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+var alphalower = new SymbolTable('abcdefghijklmnopqrstuvwxyz');
+// < export mudder.js
+~~~
+
+And make it an ES2015 module:
+
+~~~js
+export {SymbolTable, base62, base36, alphaupper, alphalower};
+// < export mudder.js
+~~~
 
 ##References
 
