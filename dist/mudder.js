@@ -4,13 +4,57 @@
     (factory((global.mudder = global.mudder || {})));
 }(this, (function (exports) { 'use strict';
 
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) {
+  return typeof obj;
+} : function (obj) {
+  return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj;
+};
+
+var slicedToArray = function () {
+  function sliceIterator(arr, i) {
+    var _arr = [];
+    var _n = true;
+    var _d = false;
+    var _e = undefined;
+
+    try {
+      for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+        _arr.push(_s.value);
+
+        if (i && _arr.length === i) break;
+      }
+    } catch (err) {
+      _d = true;
+      _e = err;
+    } finally {
+      try {
+        if (!_n && _i["return"]) _i["return"]();
+      } finally {
+        if (_d) throw _e;
+      }
+    }
+
+    return _arr;
+  }
+
+  return function (arr, i) {
+    if (Array.isArray(arr)) {
+      return arr;
+    } else if (Symbol.iterator in Object(arr)) {
+      return sliceIterator(arr, i);
+    } else {
+      throw new TypeError("Invalid attempt to destructure non-iterable instance");
+    }
+  };
+}();
+
 var toStr$2 = Object.prototype.toString;
 
 var __moduleExports$2 = function isArguments(value) {
 	var str = toStr$2.call(value);
 	var isArgs = str === '[object Arguments]';
 	if (!isArgs) {
-		isArgs = str !== '[object Array]' && value !== null && typeof value === 'object' && typeof value.length === 'number' && value.length >= 0 && toStr$2.call(value.callee) === '[object Function]';
+		isArgs = str !== '[object Array]' && value !== null && (typeof value === 'undefined' ? 'undefined' : _typeof(value)) === 'object' && typeof value.length === 'number' && value.length >= 0 && toStr$2.call(value.callee) === '[object Function]';
 	}
 	return isArgs;
 };
@@ -24,7 +68,7 @@ var isEnumerable = Object.prototype.propertyIsEnumerable;
 var hasDontEnumBug = !isEnumerable.call({ toString: null }, 'toString');
 var hasProtoEnumBug = isEnumerable.call(function () {}, 'prototype');
 var dontEnums = ['toString', 'toLocaleString', 'valueOf', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable', 'constructor'];
-var equalsConstructorPrototype = function (o) {
+var equalsConstructorPrototype = function equalsConstructorPrototype(o) {
 	var ctor = o.constructor;
 	return ctor && ctor.prototype === o;
 };
@@ -57,7 +101,7 @@ var hasAutomationEqualityBug = function () {
 	}
 	for (var k in window) {
 		try {
-			if (!excludedKeys['$' + k] && has.call(window, k) && window[k] !== null && typeof window[k] === 'object') {
+			if (!excludedKeys['$' + k] && has.call(window, k) && window[k] !== null && _typeof(window[k]) === 'object') {
 				try {
 					equalsConstructorPrototype(window[k]);
 				} catch (e) {
@@ -70,7 +114,7 @@ var hasAutomationEqualityBug = function () {
 	}
 	return false;
 }();
-var equalsConstructorPrototypeIfNotBuggy = function (o) {
+var equalsConstructorPrototypeIfNotBuggy = function equalsConstructorPrototypeIfNotBuggy(o) {
 	/* global window */
 	if (typeof window === 'undefined' || !hasAutomationEqualityBug) {
 		return equalsConstructorPrototype(o);
@@ -83,7 +127,7 @@ var equalsConstructorPrototypeIfNotBuggy = function (o) {
 };
 
 var keysShim = function keys(object) {
-	var isObject = object !== null && typeof object === 'object';
+	var isObject = object !== null && (typeof object === 'undefined' ? 'undefined' : _typeof(object)) === 'object';
 	var isFunction = toStr$1.call(object) === '[object Function]';
 	var isArguments = isArgs(object);
 	var isString = isObject && toStr$1.call(object) === '[object String]';
@@ -171,15 +215,15 @@ var __moduleExports$3 = function forEach(obj, fn, ctx) {
 
 var keys = __moduleExports$1;
 var foreach = __moduleExports$3;
-var hasSymbols = typeof Symbol === 'function' && typeof Symbol() === 'symbol';
+var hasSymbols = typeof Symbol === 'function' && _typeof(Symbol()) === 'symbol';
 
 var toStr = Object.prototype.toString;
 
-var isFunction = function (fn) {
+var isFunction = function isFunction(fn) {
 	return typeof fn === 'function' && toStr.call(fn) === '[object Function]';
 };
 
-var arePropertyDescriptorsSupported = function () {
+var arePropertyDescriptorsSupported = function arePropertyDescriptorsSupported() {
 	var obj = {};
 	try {
 		Object.defineProperty(obj, 'x', { enumerable: false, value: obj });
@@ -196,7 +240,7 @@ var arePropertyDescriptorsSupported = function () {
 };
 var supportsDescriptors = Object.defineProperty && arePropertyDescriptorsSupported();
 
-var defineProperty = function (object, name, value, predicate) {
+var defineProperty = function defineProperty(object, name, value, predicate) {
 	if (name in object && (!isFunction(predicate) || !predicate())) {
 		return;
 	}
@@ -212,7 +256,7 @@ var defineProperty = function (object, name, value, predicate) {
 	}
 };
 
-var defineProperties = function (object, map) {
+var defineProperties = function defineProperties(object, map) {
 	var predicates = arguments.length > 2 ? arguments[2] : {};
 	var props = keys(map);
 	if (hasSymbols) {
@@ -259,11 +303,11 @@ var __moduleExports$11 = function mod(number, modulo) {
 };
 
 var __moduleExports$12 = function isPrimitive(value) {
-	return value === null || typeof value !== 'function' && typeof value !== 'object';
+	return value === null || typeof value !== 'function' && (typeof value === 'undefined' ? 'undefined' : _typeof(value)) !== 'object';
 };
 
 var __moduleExports$14 = function isPrimitive(value) {
-	return value === null || typeof value !== 'function' && typeof value !== 'object';
+	return value === null || typeof value !== 'function' && (typeof value === 'undefined' ? 'undefined' : _typeof(value)) !== 'object';
 };
 
 var fnToStr = Function.prototype.toString;
@@ -295,13 +339,13 @@ var tryFunctionObject = function tryFunctionObject(value) {
 var toStr$4 = Object.prototype.toString;
 var fnClass = '[object Function]';
 var genClass = '[object GeneratorFunction]';
-var hasToStringTag = typeof Symbol === 'function' && typeof Symbol.toStringTag === 'symbol';
+var hasToStringTag = typeof Symbol === 'function' && _typeof(Symbol.toStringTag) === 'symbol';
 
 var __moduleExports$15 = function isCallable(value) {
 	if (!value) {
 		return false;
 	}
-	if (typeof value !== 'function' && typeof value !== 'object') {
+	if (typeof value !== 'function' && (typeof value === 'undefined' ? 'undefined' : _typeof(value)) !== 'object') {
 		return false;
 	}
 	if (hasToStringTag) {
@@ -326,10 +370,10 @@ var tryDateObject = function tryDateObject(value) {
 
 var toStr$5 = Object.prototype.toString;
 var dateClass = '[object Date]';
-var hasToStringTag$1 = typeof Symbol === 'function' && typeof Symbol.toStringTag === 'symbol';
+var hasToStringTag$1 = typeof Symbol === 'function' && _typeof(Symbol.toStringTag) === 'symbol';
 
 var __moduleExports$16 = function isDateObject(value) {
-	if (typeof value !== 'object' || value === null) {
+	if ((typeof value === 'undefined' ? 'undefined' : _typeof(value)) !== 'object' || value === null) {
 		return false;
 	}
 	return hasToStringTag$1 ? tryDateObject(value) : toStr$5.call(value) === dateClass;
@@ -343,19 +387,19 @@ var __moduleExports$17 = createCommonjsModule(function (module) {
 	'use strict';
 
 	var toStr = Object.prototype.toString;
-	var hasSymbols = typeof Symbol === 'function' && typeof Symbol() === 'symbol';
+	var hasSymbols = typeof Symbol === 'function' && _typeof(Symbol()) === 'symbol';
 
 	if (hasSymbols) {
 		var symToStr = Symbol.prototype.toString;
 		var symStringRegex = /^Symbol\(.*\)$/;
 		var isSymbolObject = function isSymbolObject(value) {
-			if (typeof value.valueOf() !== 'symbol') {
+			if (_typeof(value.valueOf()) !== 'symbol') {
 				return false;
 			}
 			return symStringRegex.test(symToStr.call(value));
 		};
 		module.exports = function isSymbol(value) {
-			if (typeof value === 'symbol') {
+			if ((typeof value === 'undefined' ? 'undefined' : _typeof(value)) === 'symbol') {
 				return true;
 			}
 			if (toStr.call(value) !== '[object Symbol]') {
@@ -375,7 +419,7 @@ var __moduleExports$17 = createCommonjsModule(function (module) {
 	}
 });
 
-var hasSymbols$2 = typeof Symbol === 'function' && typeof Symbol.iterator === 'symbol';
+var hasSymbols$2 = typeof Symbol === 'function' && _typeof(Symbol.iterator) === 'symbol';
 
 var isPrimitive$1 = __moduleExports$14;
 var isCallable = __moduleExports$15;
@@ -461,7 +505,7 @@ var __moduleExports$19 = function bind(that) {
     var args = slice$1.call(arguments, 1);
 
     var bound;
-    var binder = function () {
+    var binder = function binder() {
         if (this instanceof bound) {
             var result = target.apply(this, args.concat(slice$1.call(arguments)));
             if (Object(result) === result) {
@@ -503,7 +547,7 @@ var isCallable$1 = __moduleExports$15;
 
 // https://es5.github.io/#x8.12
 var ES5internalSlots = {
-	'[[DefaultValue]]': function (O, hint) {
+	'[[DefaultValue]]': function DefaultValue(O, hint) {
 		var actualHint = hint || (toStr$7.call(O) === '[object Date]' ? String : Number);
 
 		if (actualHint === String || actualHint === Number) {
@@ -608,7 +652,7 @@ var ES5$1 = {
 		if (typeof x === 'undefined') {
 			return 'Undefined';
 		}
-		if (typeof x === 'function' || typeof x === 'object') {
+		if (typeof x === 'function' || (typeof x === 'undefined' ? 'undefined' : _typeof(x)) === 'object') {
 			return 'Object';
 		}
 		if (typeof x === 'number') {
@@ -636,17 +680,17 @@ var tryRegexExec = function tryRegexExec(value) {
 };
 var toStr$8 = Object.prototype.toString;
 var regexClass = '[object RegExp]';
-var hasToStringTag$2 = typeof Symbol === 'function' && typeof Symbol.toStringTag === 'symbol';
+var hasToStringTag$2 = typeof Symbol === 'function' && _typeof(Symbol.toStringTag) === 'symbol';
 
 var __moduleExports$22 = function isRegex(value) {
-	if (typeof value !== 'object') {
+	if ((typeof value === 'undefined' ? 'undefined' : _typeof(value)) !== 'object') {
 		return false;
 	}
 	return hasToStringTag$2 ? tryRegexExec(value) : toStr$8.call(value) === regexClass;
 };
 
 var toStr$3 = Object.prototype.toString;
-var hasSymbols$1 = typeof Symbol === 'function' && typeof Symbol.iterator === 'symbol';
+var hasSymbols$1 = typeof Symbol === 'function' && _typeof(Symbol.iterator) === 'symbol';
 var symbolToStr = hasSymbols$1 ? Symbol.prototype.toString : toStr$3;
 
 var $isNaN = __moduleExports$7;
@@ -663,7 +707,7 @@ var bind$1 = __moduleExports$18;
 var strSlice = bind$1.call(Function.call, String.prototype.slice);
 var isBinary = bind$1.call(Function.call, RegExp.prototype.test, /^0b[01]+$/i);
 var isOctal = bind$1.call(Function.call, RegExp.prototype.test, /^0o[0-7]+$/i);
-var nonWS = ['\u0085', '\u200b', '\ufffe'].join('');
+var nonWS = ['', '​', '￾'].join('');
 var nonWSregex = new RegExp('[' + nonWS + ']', 'g');
 var hasNonWS = bind$1.call(Function.call, RegExp.prototype.test, nonWSregex);
 var invalidHexLiteral = /^[\-\+]0x[0-9a-f]+$/i;
@@ -671,10 +715,10 @@ var isInvalidHexLiteral = bind$1.call(Function.call, RegExp.prototype.test, inva
 
 // whitespace from: http://es5.github.io/#x15.5.4.20
 // implementation from https://github.com/es-shims/es5-shim/blob/v3.4.0/es5-shim.js#L1304-L1324
-var ws = ['\x09\x0A\x0B\x0C\x0D\x20\xA0\u1680\u180E\u2000\u2001\u2002\u2003', '\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000\u2028', '\u2029\uFEFF'].join('');
+var ws = ['\t\n\u000b\f\r   ᠎    ', '         　\u2028', '\u2029﻿'].join('');
 var trimRegex = new RegExp('(^[' + ws + ']+)|([' + ws + ']+$)', 'g');
 var replace = bind$1.call(Function.call, String.prototype.replace);
-var trim = function (value) {
+var trim = function trim(value) {
 	return replace(value, trimRegex, '');
 };
 
@@ -703,7 +747,7 @@ var ES6$1 = assign$1(assign$1({}, ES5), {
 	// http://www.ecma-international.org/ecma-262/6.0/#sec-tonumber
 	ToNumber: function ToNumber(argument) {
 		var value = isPrimitive(argument) ? argument : toPrimitive(argument, 'number');
-		if (typeof value === 'symbol') {
+		if ((typeof value === 'undefined' ? 'undefined' : _typeof(value)) === 'symbol') {
 			throw new TypeError('Cannot convert a Symbol value to a number');
 		}
 		if (typeof value === 'string') {
@@ -781,7 +825,7 @@ var ES6$1 = assign$1(assign$1({}, ES5), {
 
 	// https://people.mozilla.org/~jorendorff/es6-draft.html#sec-tostring
 	ToString: function ToString(argument) {
-		if (typeof argument === 'symbol') {
+		if ((typeof argument === 'undefined' ? 'undefined' : _typeof(argument)) === 'symbol') {
 			throw new TypeError('Cannot convert a Symbol value to a string');
 		}
 		return String(argument);
@@ -796,7 +840,7 @@ var ES6$1 = assign$1(assign$1({}, ES5), {
 	// https://people.mozilla.org/~jorendorff/es6-draft.html#sec-topropertykey
 	ToPropertyKey: function ToPropertyKey(argument) {
 		var key = this.ToPrimitive(argument, String);
-		return typeof key === 'symbol' ? symbolToStr.call(key) : this.ToString(key);
+		return (typeof key === 'undefined' ? 'undefined' : _typeof(key)) === 'symbol' ? symbolToStr.call(key) : this.ToString(key);
 	},
 
 	// https://people.mozilla.org/~jorendorff/es6-draft.html#sec-tolength
@@ -864,12 +908,12 @@ var ES6$1 = assign$1(assign$1({}, ES5), {
 
 	// https://people.mozilla.org/~jorendorff/es6-draft.html#sec-ispropertykey
 	IsPropertyKey: function IsPropertyKey(argument) {
-		return typeof argument === 'string' || typeof argument === 'symbol';
+		return typeof argument === 'string' || (typeof argument === 'undefined' ? 'undefined' : _typeof(argument)) === 'symbol';
 	},
 
 	// http://www.ecma-international.org/ecma-262/6.0/#sec-isregexp
 	IsRegExp: function IsRegExp(argument) {
-		if (!argument || typeof argument !== 'object') {
+		if (!argument || (typeof argument === 'undefined' ? 'undefined' : _typeof(argument)) !== 'object') {
 			return false;
 		}
 		if (hasSymbols$1) {
@@ -890,7 +934,7 @@ var ES6$1 = assign$1(assign$1({}, ES5), {
 	},
 
 	Type: function Type(x) {
-		if (typeof x === 'symbol') {
+		if ((typeof x === 'undefined' ? 'undefined' : _typeof(x)) === 'symbol') {
 			return 'Symbol';
 		}
 		return ES5.Type(x);
@@ -929,7 +973,7 @@ var assign = __moduleExports$9;
 var ES7 = assign(ES6, {
 	// https://github.com/tc39/ecma262/pull/60
 	SameValueNonNumber: function SameValueNonNumber(x, y) {
-		if (typeof x === 'number' || typeof x !== typeof y) {
+		if (typeof x === 'number' || (typeof x === 'undefined' ? 'undefined' : _typeof(x)) !== (typeof y === 'undefined' ? 'undefined' : _typeof(y))) {
 			throw new TypeError('SameValueNonNumber requires two non-number values of the same type.');
 		}
 		return this.SameValue(x, y);
@@ -969,7 +1013,7 @@ var define$1 = __moduleExports;
 
 var __moduleExports$25 = function shimEntries() {
 	var polyfill = getPolyfill$1();
-	define$1(Object, { entries: polyfill }, { entries: function () {
+	define$1(Object, { entries: polyfill }, { entries: function entries() {
 			return Object.entries !== polyfill;
 		} });
 	return polyfill;
@@ -993,34 +1037,101 @@ function isPrefixCode(strings) {
   // Note: we skip checking for prefixness if two symbols are equal to each
   // other. This implies that repeated symbols in the input are *silently
   // ignored*!
-  for (const i of strings) {
-    for (const j of strings) {
-      if (j === i) {
-        // [🍅]
-        continue;
+  var _iteratorNormalCompletion = true;
+  var _didIteratorError = false;
+  var _iteratorError = undefined;
+
+  try {
+    for (var _iterator = strings[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+      var i = _step.value;
+      var _iteratorNormalCompletion2 = true;
+      var _didIteratorError2 = false;
+      var _iteratorError2 = undefined;
+
+      try {
+        for (var _iterator2 = strings[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+          var j = _step2.value;
+
+          if (j === i) {
+            // [🍅]
+            continue;
+          }
+          if (i.startsWith(j)) {
+            return false;
+          }
+        }
+      } catch (err) {
+        _didIteratorError2 = true;
+        _iteratorError2 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+            _iterator2.return();
+          }
+        } finally {
+          if (_didIteratorError2) {
+            throw _iteratorError2;
+          }
+        }
       }
-      if (i.startsWith(j)) {
-        return false;
+    }
+  } catch (err) {
+    _didIteratorError = true;
+    _iteratorError = err;
+  } finally {
+    try {
+      if (!_iteratorNormalCompletion && _iterator.return) {
+        _iterator.return();
+      }
+    } finally {
+      if (_didIteratorError) {
+        throw _iteratorError;
       }
     }
   }
+
   return true;
 }
 // < export mudder.js
 
 function isPrefixCodeLogLinear(strings) {
   strings = Array.from(strings).sort(); // set->array or array->copy
-  for (const [i, curr] of strings.entries()) {
-    const prev = strings[i - 1]; // undefined for first iteration
-    if (prev === curr) {
-      // Skip repeated entries, match quadratic API
-      continue;
+  var _iteratorNormalCompletion3 = true;
+  var _didIteratorError3 = false;
+  var _iteratorError3 = undefined;
+
+  try {
+    for (var _iterator3 = strings.entries()[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+      var _step3$value = slicedToArray(_step3.value, 2);
+
+      var i = _step3$value[0];
+      var curr = _step3$value[1];
+
+      var prev = strings[i - 1]; // undefined for first iteration
+      if (prev === curr) {
+        // Skip repeated entries, match quadratic API
+        continue;
+      }
+      if (curr.startsWith(prev)) {
+        // str.startsWith(undefined) always false
+        return false;
+      };
     }
-    if (curr.startsWith(prev)) {
-      // str.startsWith(undefined) always false
-      return false;
-    };
+  } catch (err) {
+    _didIteratorError3 = true;
+    _iteratorError3 = err;
+  } finally {
+    try {
+      if (!_iteratorNormalCompletion3 && _iterator3.return) {
+        _iterator3.return();
+      }
+    } finally {
+      if (_didIteratorError3) {
+        throw _iteratorError3;
+      }
+    }
   }
+
   return true;
 }
 // < export mudder.js
@@ -1060,7 +1171,9 @@ function SymbolTable(symbolsArr, symbolsMap) {
   // it by inverting symbolsArr. If it's an object (and not a Map), convert its
   // own-properties to a Map.
   if (typeof symbolsMap === 'undefined') {
-    symbolsMap = new Map(symbolsArr.map((str, idx) => [str, idx]));
+    symbolsMap = new Map(symbolsArr.map(function (str, idx) {
+      return [str, idx];
+    }));
   } else if (symbolsMap instanceof Object && !(symbolsMap instanceof Map)) {
     symbolsMap = new Map(Object.entries(symbolsMap)); // [🌪]
   } else {
@@ -1069,8 +1182,8 @@ function SymbolTable(symbolsArr, symbolsMap) {
 
   // Ensure that each integer from 0 to `symbolsArr.length - 1` is a value in
   // `symbolsMap`
-  let symbolsValuesSet = new Set(symbolsMap.values());
-  for (let i = 0; i < symbolsArr.length; i++) {
+  var symbolsValuesSet = new Set(symbolsMap.values());
+  for (var i = 0; i < symbolsArr.length; i++) {
     if (!symbolsValuesSet.has(i)) {
       throw new RangeError(symbolsArr.length + ' symbols given but ' + i + ' not found in symbol table');
     }
@@ -1090,7 +1203,7 @@ if (!Object.entries) {
 
 SymbolTable.prototype.numberToDigits = function (num, base) {
   base = base || this.maxBase;
-  let digits = [];
+  var digits = [];
   while (num >= 1) {
     digits.push(num % base);
     num = Math.floor(num / base);
@@ -1100,27 +1213,35 @@ SymbolTable.prototype.numberToDigits = function (num, base) {
 // < export mudder.js
 
 SymbolTable.prototype.digitsToString = function (digits) {
-  return digits.map(n => this.num2sym[n]).join('');
+  var _this = this;
+
+  return digits.map(function (n) {
+    return _this.num2sym[n];
+  }).join('');
 };
 // < export mudder.js
 
 SymbolTable.prototype.stringToDigits = function (string) {
+  var _this2 = this;
+
   if (!this.isPrefixCode && typeof string === 'string') {
     throw new TypeError('parsing string without prefix code is unsupported. Pass in array of stringy symbols?');
   }
   if (typeof string === 'string') {
-    const re = new RegExp('(' + this.num2sym.join('|') + ')', 'g');
+    var re = new RegExp('(' + this.num2sym.join('|') + ')', 'g');
     string = string.match(re);
   }
-  return string.map(symbol => this.sym2num.get(symbol));
+  return string.map(function (symbol) {
+    return _this2.sym2num.get(symbol);
+  });
 };
 // < export mudder.js
 
 SymbolTable.prototype.digitsToNumber = function (digits, base) {
   base = base || this.maxBase;
-  let currBase = 1;
-  return digits.reduceRight((accum, curr) => {
-    let ret = accum + curr * currBase;
+  var currBase = 1;
+  return digits.reduceRight(function (accum, curr) {
+    var ret = accum + curr * currBase;
     currBase *= base;
     return ret;
   }, 0);
@@ -1128,13 +1249,13 @@ SymbolTable.prototype.digitsToNumber = function (digits, base) {
 // < export mudder.js
 
 function longDiv(numeratorArr, den, base) {
-  return numeratorArr.reduce((prev, curr) => {
-    let newNum = curr + prev.rem * base;
+  return numeratorArr.reduce(function (prev, curr) {
+    var newNum = curr + prev.rem * base;
     return {
       res: prev.res.concat(Math.floor(newNum / den)),
-      rem: newNum % den, den
+      rem: newNum % den, den: den
     };
-  }, { res: [], rem: 0, den });
+  }, { res: [], rem: 0, den: den });
 }
 // < export mudder.js
 
@@ -1142,21 +1263,21 @@ function longAddSameLen(a, b, base, rem, den) {
   if (a.length !== b.length) {
     throw new Error('same length arrays needed');
   }
-  let carry = rem >= den,
+  var carry = rem >= den,
       res = b.slice();
   if (carry) {
     rem -= den;
   }
-  a.reduceRight((_, ai, i) => {
-    const result = ai + b[i] + carry;
+  a.reduceRight(function (_, ai, i) {
+    var result = ai + b[i] + carry;
     carry = result >= base;
     res[i] = carry ? result - base : result;
   }, null);
-  return { res, carry, rem, den };
+  return { res: res, carry: carry, rem: rem, den: den };
 };
 
 function rightpad(arr, finalLength, val) {
-  const padlen = Math.max(0, finalLength - arr.length);
+  var padlen = Math.max(0, finalLength - arr.length);
   return arr.concat(Array(padlen).fill(val || 0));
 }
 
@@ -1166,20 +1287,22 @@ function longLinspace(a, b, base, N) {
   } else if (b.length < a.length) {
     b = rightpad(b, a.length);
   }
-  const aDiv = longDiv(a, N + 1, base);
-  const bDiv = longDiv(b, N + 1, base);
-  let as = [aDiv];
-  let bs = [bDiv];
-  for (let i = 2; i <= N; i++) {
+  var aDiv = longDiv(a, N + 1, base);
+  var bDiv = longDiv(b, N + 1, base);
+  var as = [aDiv];
+  var bs = [bDiv];
+  for (var i = 2; i <= N; i++) {
     as.push(longAddSameLen(as[i - 2].res, aDiv.res, base, aDiv.rem + as[i - 2].rem, N + 1));
     bs.push(longAddSameLen(bs[i - 2].res, bDiv.res, base, bDiv.rem + bs[i - 2].rem, N + 1));
   }
   as.reverse();
-  return as.map((a, i) => longAddSameLen(a.res, bs[i].res, base, a.rem + bs[i].rem, N + 1));
+  return as.map(function (a, i) {
+    return longAddSameLen(a.res, bs[i].res, base, a.rem + bs[i].rem, N + 1);
+  });
 }
 
 function leftpad(arr, finalLength, val) {
-  const padlen = Math.max(0, finalLength - arr.length);
+  var padlen = Math.max(0, finalLength - arr.length);
   return Array(padlen).fill(val || 0).concat(arr);
 }
 
@@ -1193,7 +1316,7 @@ SymbolTable.prototype.roundFraction = function (numerator, denominator, base) {
 };
 
 function chopDigits(rock, water) {
-  for (let idx = 0; idx < water.length; idx++) {
+  for (var idx = 0; idx < water.length; idx++) {
     if (water[idx] && rock[idx] !== water[idx]) {
       return water.slice(0, idx + 1);
     }
@@ -1202,13 +1325,17 @@ function chopDigits(rock, water) {
 }
 
 function chopSuccessiveDigits(strings) {
-  return strings.slice(1).reduce((accum, curr) => accum.concat([chopDigits(accum[accum.length - 1], curr)]), [strings[0]]);
+  return strings.slice(1).reduce(function (accum, curr) {
+    return accum.concat([chopDigits(accum[accum.length - 1], curr)]);
+  }, [strings[0]]);
 }
 
 function truncateLexHigher(lo, hi) {
-  const swapped = lo > hi;
+  var swapped = lo > hi;
   if (swapped) {
-    [lo, hi] = [hi, lo];
+    var _ref = [hi, lo];
+    lo = _ref[0];
+    hi = _ref[1];
   }
   hi = hi.slice(0, lo.length + 1);
   if (swapped) {
@@ -1218,14 +1345,27 @@ function truncateLexHigher(lo, hi) {
 }
 
 SymbolTable.prototype.mudder = function (a, b, base, numStrings) {
+  var _this3 = this;
+
   base = base || this.maxBase;
-  [a, b] = truncateLexHigher(a, b);
-  const ad = this.stringToDigits(a, base);
-  const bd = this.stringToDigits(b, base);
-  const intermediateDigits = longLinspace(ad, bd, base, numStrings || 1);
-  let finalDigits = intermediateDigits.map(v => v.res.concat(this.roundFraction(v.rem, v.den, base)));
+
+  var _truncateLexHigher = truncateLexHigher(a, b);
+
+  var _truncateLexHigher2 = slicedToArray(_truncateLexHigher, 2);
+
+  a = _truncateLexHigher2[0];
+  b = _truncateLexHigher2[1];
+
+  var ad = this.stringToDigits(a, base);
+  var bd = this.stringToDigits(b, base);
+  var intermediateDigits = longLinspace(ad, bd, base, numStrings || 1);
+  var finalDigits = intermediateDigits.map(function (v) {
+    return v.res.concat(_this3.roundFraction(v.rem, v.den, base));
+  });
   finalDigits.unshift(ad);
-  return chopSuccessiveDigits(finalDigits).slice(1).map(v => this.digitsToString(v));
+  return chopSuccessiveDigits(finalDigits).slice(1).map(function (v) {
+    return _this3.digitsToString(v);
+  });
 };
 // < export mudder.js
 
@@ -1233,6 +1373,7 @@ var base62 = new SymbolTable('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn
 var base36 = new SymbolTable('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ');
 var alphaupper = new SymbolTable('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
 var alphalower = new SymbolTable('abcdefghijklmnopqrstuvwxyz');
+// < export mudder.js
 
 exports.SymbolTable = SymbolTable;
 exports.base62 = base62;
