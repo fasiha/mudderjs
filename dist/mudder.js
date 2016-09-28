@@ -1166,8 +1166,8 @@ function longLinspace(a, b, base, N) {
   } else if (b.length < a.length) {
     b = rightpad(b, a.length);
   }
-  aDiv = longDiv(a, N + 1, base);
-  bDiv = longDiv(b, N + 1, base);
+  const aDiv = longDiv(a, N + 1, base);
+  const bDiv = longDiv(b, N + 1, base);
   let as = [aDiv];
   let bs = [bDiv];
   for (let i = 2; i <= N; i++) {
