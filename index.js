@@ -1,4 +1,1 @@
-export {
-  Mudder
-} from "./src/mudder.js";
-
+export * from "./src/mudder.js";

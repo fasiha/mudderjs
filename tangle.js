@@ -5,7 +5,4 @@ var exportStrings =
   file.match(/~~~js\n([\S\s]*?)~~~/g)
     .filter(s => s.indexOf('< export') >= 0)
     .map(s => s.replace(/~~~$/, '').replace(/^~~~[a-z]*\s/, ''));
-fs.writeFileSync('out.js', exportStrings.join('\n'));
-
-var m = require('./out')
-console.log(m.base62.mudder('cat', 'doggie'))
+fs.writeFileSync('src/mudder.js', exportStrings.join('\n'));

@@ -364,8 +364,16 @@ var entries = require('object.entries');
 if (!Object.entries) {
   entries.shim();
 }
+~~~
+
+~~~js
+import entries from "object.entries";
+if (!Object.entries) {
+  entries.shim();
+}
 // < export mudder.js
 ~~~
+
 
 Now.
 

@@ -1,0 +1,256 @@
+function isPrefixCode(strings) {
+  // Note: we skip checking for prefixness if two symbols are equal to each
+  // other. This implies that repeated symbols in the input are *silently
+  // ignored*!
+  for (const i of strings) {
+    for (const j of strings) {
+      if (j === i) { // [🍅]
+        continue;
+      }
+      if (i.startsWith(j)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+// < export mudder.js
+
+function isPrefixCodeLogLinear(strings) {
+  strings = Array.from(strings).sort(); // set->array or array->copy
+  for (const [i, curr] of strings.entries()) {
+    const prev = strings[i - 1]; // undefined for first iteration
+    if (prev === curr) {         // Skip repeated entries, match quadratic API
+      continue;
+    }
+    if (curr.startsWith(prev)) { // str.startsWith(undefined) always false
+      return false;
+    };
+  }
+  return true;
+}
+// < export mudder.js
+
+isPrefixCode = isPrefixCodeLogLinear;
+// < export mudder.js
+
+/* Constructor:
+symbolsArr is a string (split into an array) or an array. In either case, it
+maps numbers (array indexes) to stringy symbols. Its length defines the max
+radix the symbol table can handle.
+
+symbolsMap is optional, but goes the other way, so it can be an object or Map.
+Its keys are stringy symbols and its values are numbers. If omitted, the
+implied map goes from the indexes of symbolsArr to the symbols.
+
+When symbolsMap is provided, its values are checked to ensure that each number
+from 0 to max radix minus one is present. If you had a symbol as an entry in
+symbolsArr, then number->string would use that symbol, but the resulting
+string couldn't be parsed because that symbol wasn't in symbolMap.
+*/
+function SymbolTable(symbolsArr, symbolsMap) {
+  'use strict'; // [⛈]
+  if (typeof this === 'undefined') {
+    throw new TypeError('constructor called as a function')
+  };
+
+  // Condition the input `symbolsArr`
+  if (typeof symbolsArr === 'string') {
+    symbolsArr = symbolsArr.split('');
+  } else if (!Array.isArray(symbolsArr)) {
+    throw new TypeError('symbolsArr must be string or array');
+  }
+
+  // Condition the second input, `symbolsMap`. If no symbolsMap passed in, make
+  // it by inverting symbolsArr. If it's an object (and not a Map), convert its
+  // own-properties to a Map.
+  if (typeof symbolsMap === 'undefined') {
+    symbolsMap = new Map(symbolsArr.map((str, idx) => [str, idx]));
+  } else if (symbolsMap instanceof Object && !(symbolsMap instanceof Map)) {
+    symbolsMap = new Map(Object.entries(symbolsMap)); // [🌪]
+  } else {
+    throw new TypeError('symbolsMap can be omitted, a Map, or an Object');
+  }
+
+  // Ensure that each integer from 0 to `symbolsArr.length - 1` is a value in
+  // `symbolsMap`
+  let symbolsValuesSet = new Set(symbolsMap.values());
+  for (let i = 0; i < symbolsArr.length; i++) {
+    if (!symbolsValuesSet.has(i)) {
+      throw new RangeError(symbolsArr.length + ' symbols given but ' + i +
+                           ' not found in symbol table');
+    }
+  }
+
+  this.num2sym = symbolsArr;
+  this.sym2num = symbolsMap;
+  this.maxBase = this.num2sym.length;
+  this.isPrefixCode = isPrefixCode(symbolsArr);
+}
+// < export mudder.js
+
+import entries from "object.entries";
+if (!Object.entries) {
+  entries.shim();
+}
+// < export mudder.js
+
+SymbolTable.prototype.numberToDigits = function(num, base) {
+  base = base || this.maxBase;
+  let digits = [];
+  while (num >= 1) {
+    digits.push(num % base);
+    num = Math.floor(num / base);
+  }
+  return digits.length ? digits.reverse() : [ 0 ];
+};
+// < export mudder.js
+
+SymbolTable.prototype.digitsToString = function(digits) {
+  return digits.map(n => this.num2sym[n]).join('');
+};
+// < export mudder.js
+
+SymbolTable.prototype.stringToDigits = function(string) {
+  if (!this.isPrefixCode && typeof string === 'string') {
+    throw new TypeError(
+        'parsing string without prefix code is unsupported. Pass in array of stringy symbols?');
+  }
+  if (typeof string === 'string') {
+    const re = new RegExp('(' + this.num2sym.join('|') + ')', 'g');
+    string = string.match(re);
+  }
+  return string.map(symbol => this.sym2num.get(symbol));
+};
+// < export mudder.js
+
+SymbolTable.prototype.digitsToNumber = function(digits, base) {
+  base = base || this.maxBase;
+  let currBase = 1;
+  return digits.reduceRight((accum, curr) => {
+    let ret = accum + curr * currBase;
+    currBase *= base;
+    return ret;
+  }, 0);
+};
+// < export mudder.js
+
+function longDiv(numeratorArr, den, base) {
+  return numeratorArr.reduce((prev, curr) => {
+    let newNum = curr + prev.rem * base;
+    return {
+      res : prev.res.concat(Math.floor(newNum / den)),
+      rem : newNum % den, den
+    };
+  }, {res : [], rem : 0, den});
+}
+// < export mudder.js
+
+function longAddSameLen(a, b, base, rem, den) {
+  if (a.length !== b.length) {
+    throw new Error('same length arrays needed');
+  }
+  let carry = rem >= den, res = b.slice();
+  if (carry) {
+    rem -= den;
+  }
+  a.reduceRight((_, ai, i) => {
+    const result = ai + b[i] + carry;
+    carry = result >= base;
+    res[i] = carry ? result - base : result;
+  }, null);
+  return {res, carry, rem, den};
+};
+
+function rightpad(arr, finalLength, val) {
+  const padlen = Math.max(0, finalLength - arr.length);
+  return arr.concat(Array(padlen).fill(val || 0));
+}
+
+function longLinspace(a, b, base, N) {
+  if (a.length < b.length) {
+    a = rightpad(a, b.length);
+  } else if (b.length < a.length) {
+    b = rightpad(b, a.length);
+  }
+  aDiv = longDiv(a, N + 1, base);
+  bDiv = longDiv(b, N + 1, base);
+  let as = [ aDiv ];
+  let bs = [ bDiv ];
+  for (let i = 2; i <= N; i++) {
+    as.push(longAddSameLen(as[i - 2].res, aDiv.res, base,
+                           aDiv.rem + as[i - 2].rem, N + 1));
+    bs.push(longAddSameLen(bs[i - 2].res, bDiv.res, base,
+                           bDiv.rem + bs[i - 2].rem, N + 1));
+  }
+  as.reverse();
+  return as.map((a, i) => longAddSameLen(a.res, bs[i].res, base,
+                                         a.rem + bs[i].rem, N + 1));
+}
+
+function leftpad(arr, finalLength, val) {
+  const padlen = Math.max(0, finalLength - arr.length);
+  return Array(padlen).fill(val || 0).concat(arr);
+}
+
+SymbolTable.prototype.roundFraction = function(numerator, denominator, base) {
+  base = base || this.maxBase;
+  var places = Math.ceil(Math.log(denominator) / Math.log(base));
+  var scale = Math.pow(base, places);
+  var scaled = Math.round(numerator / denominator * scale);
+  var digits = this.numberToDigits(scaled, base);
+  return leftpad(digits, places, 0);
+};
+
+function chopDigits(rock, water) {
+  for (let idx = 0; idx < water.length; idx++) {
+    if (water[idx] && rock[idx] !== water[idx]) {
+      return water.slice(0, idx + 1);
+    }
+  }
+  return water;
+}
+
+function chopSuccessiveDigits(strings) {
+  return strings.slice(1).reduce(
+      (accum, curr) =>
+          accum.concat([ chopDigits(accum[accum.length - 1], curr) ]),
+      [ strings[0] ]);
+}
+
+function truncateLexHigher(lo, hi) {
+  const swapped = lo > hi;
+  if (swapped) {
+    [lo, hi] = [ hi, lo ];
+  }
+  hi = hi.slice(0, lo.length + 1);
+  if (swapped) {
+    return [ hi, lo ];
+  }
+  return [ lo, hi ];
+}
+
+SymbolTable.prototype.mudder = function(a, b, base, numStrings) {
+  base = base || this.maxBase;
+  [a, b] = truncateLexHigher(a, b);
+  const ad = this.stringToDigits(a, base);
+  const bd = this.stringToDigits(b, base);
+  const intermediateDigits = longLinspace(ad, bd, base, numStrings || 1);
+  let finalDigits = intermediateDigits.map(
+      v => v.res.concat(this.roundFraction(v.rem, v.den, base)));
+  finalDigits.unshift(ad);
+  return chopSuccessiveDigits(finalDigits)
+      .slice(1)
+      .map(v => this.digitsToString(v));
+};
+// < export mudder.js
+
+var base62 = new SymbolTable(
+    '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz');
+var base36 = new SymbolTable('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+var alphaupper = new SymbolTable('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+var alphalower = new SymbolTable('abcdefghijklmnopqrstuvwxyz');
+// < export mudder.js
+
+export {SymbolTable, base62, base36, alphaupper, alphalower};
+// < export mudder.js
