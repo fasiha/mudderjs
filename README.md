@@ -837,10 +837,18 @@ function chopDigits(rock, water) {
 }
 
 function chopSuccessiveDigits(strings) {
-  return strings.slice(1).reduce(
+  const reversed = strings[0] > strings[1];
+  if (reversed) {
+    strings.reverse();
+  }
+  const result = strings.slice(1).reduce(
       (accum, curr) =>
           accum.concat([ chopDigits(accum[accum.length - 1], curr) ]),
       [ strings[0] ]);
+  if (reversed) {
+    return result.reverse();
+  }
+  return result;
 }
 
 function truncateLexHigher(lo, hi) {
@@ -864,8 +872,9 @@ SymbolTable.prototype.mudder = function(a, b, base, numStrings) {
   let finalDigits = intermediateDigits.map(
       v => v.res.concat(this.roundFraction(v.rem, v.den, base)));
   finalDigits.unshift(ad);
+  finalDigits.push(bd);
   return chopSuccessiveDigits(finalDigits)
-      .slice(1)
+      .slice(1, finalDigits.length - 1)
       .map(v => this.digitsToString(v));
 };
 // < export mudder.js

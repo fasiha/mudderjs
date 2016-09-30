@@ -1325,9 +1325,17 @@ function chopDigits(rock, water) {
 }
 
 function chopSuccessiveDigits(strings) {
-  return strings.slice(1).reduce(function (accum, curr) {
+  var reversed = strings[0] > strings[1];
+  if (reversed) {
+    strings.reverse();
+  }
+  var result = strings.slice(1).reduce(function (accum, curr) {
     return accum.concat([chopDigits(accum[accum.length - 1], curr)]);
   }, [strings[0]]);
+  if (reversed) {
+    return result.reverse();
+  }
+  return result;
 }
 
 function truncateLexHigher(lo, hi) {
@@ -1363,7 +1371,8 @@ SymbolTable.prototype.mudder = function (a, b, base, numStrings) {
     return v.res.concat(_this3.roundFraction(v.rem, v.den, base));
   });
   finalDigits.unshift(ad);
-  return chopSuccessiveDigits(finalDigits).slice(1).map(function (v) {
+  finalDigits.push(bd);
+  return chopSuccessiveDigits(finalDigits).slice(1, finalDigits.length - 1).map(function (v) {
     return _this3.digitsToString(v);
   });
 };
