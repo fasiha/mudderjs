@@ -1,6 +1,64 @@
 # Mudder.js
 
-## Background
+Generate lexicographically-spaced strings between two strings from pre-defined alphabets.
+
+## Quickstart
+
+**Node.js** `yarn add mudder-js` (or `npm install --save mudder-js`), then `var mudder = require('mudder-js')`.
+
+**Browser** Download [`mudder.min.js`](dist/mudder.min.js), then include it in your HTML: `<script src="mudder.min.js"></script>`. This loads the `mudder` object into the browser’s global namespace.
+
+**Example usage** Create a new symbol table with the list of characters you want to use. In this example, we consider lowercase hexadecimal strings:
+```js
+var mudder = require('mudder-js'); // only in Node
+var hex = new mudder.SymbolTable('0123456789abcdef');
+var hexstrings = hex.mudder('ffff', 'fe0f', 3);
+console.log(hexstrings);
+// [ 'ff8', 'ff07', 'fe' ]
+```
+The three strings are guaranteed to be the shortest and as-close-to-evenly-spaced between the two original strings (`ffff` and `fe0f`, in this case) as possible.
+
+As a convenience, the following pre-generated symbol table are provided:
+- `base62`: `0-9A-Za-z`,
+- `base36`: `0-9a-z` (lower- and upper-case accepted, to match `Number.toString`),
+- `alphabet`: `a-z` (lower- and upper-case accepted).
+
+```js
+var mudder = require('mudder-js'); // only in Node
+var strings = mudder.base62.mudder('alphaNUM341C', 'beta', 3);
+console.log(strings);
+// [ 'az', 'b', 'bR' ]
+```
+
+## API
+
+### Constructor
+
+`var m = new mudder.SymbolTable(string)` creates a new symbol table using the individual characters of `string`.
+
+`var m = new mudder.SymbolTable(symbolsArr)` uses the stringy elements of `symbolsArr` as allowed symbols. This way you can get fancy, i.e., Roman numerals, Emoji, Chinese phrases, etc.
+
+`var m = new mudder.SymbolTable(symbolsArr, symbolsMap)` allows the most flexibility in creating symbol tables. The stringy elements of `symbolsArr` are again the allowed symbols, while `symbolsMap` is a JavaScript object or [Map](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map), whose keys must include all the strings in `symbolsArr` while the corresponding values must be JavaScript numbers, running from 0 up without skips. `symbolsMap` can contain keys *not* found in `symbolsArr`: this allows you to let multiple strings represent the same value, i.e., lower- and upper-case hexadecimal values. Mudder.js *outputs* will contain only the strings found in `symbolsArr` but it can *consume* strings containing anything found among the keys of `symbolsMap`.
+
+There are very few restrictions on what symbols the `SymbolTable` constructor accepts. The symbols are permitted to be non-[prefix-free](https://en.wikipedia.org/wiki/Prefix_code). In fact the library won’t object if you have repeated symbols in the table, though this makes very little sense. But in either of these cases, the `mudder` function (below) can only be invoked with arrays, not strings—i.e., you’ve parsed strings into symbols somehow yourself.
+
+### Generate strings
+
+`m.mudder(start, end[, number[, base]])` for strings, or array-of-strings, `start` and `end`, returns a `number`-length (default one) array of strings. `base` is an integer defaulting to the size of the symbol table `m`, but can be less than it if you, for some reason, wish to use only a subset of the symbol table. `start` can be lexicographically less than or greater than `end`, but in either case, the returned array will be lexicographically sorted between them. If the symbol table was *not* prefix-free, the function will refuse to operate on *strings* `start`/`end` because, without the prefix-free criterion, a string can’t be parsed unambiguously: you have to split the string into an array of stringy symbols yourself. Invalid or unrecognized symbols are silently ignored.
+
+### For fun: string–number conversion
+
+`m.stringToNumber(string[, base])` returns the number encoded by `string` in our everyday base-10 number system using all or the first `base` symbols of the symbol table `m`.
+
+`m.numberToString(int[, base])` returns the string representing a positive integer `int` in the number system defined by the symbol table. By default, all symbols are used but fewer can be specified with `base`.
+
+## Hacking this library
+
+This library is written as a literate document: in this `README.md`, prose explanations and code explanations surround the few bits of source code that actually make up the library. Fenced code blocks that contain the string `< export FOO` are appended to the file `FOO`.
+
+The Markdown “literate source” `README.md` is “tangled” into actual source code by [`tangle.js`](tangle.js) and can be invoked by `yarn prebuild` (or `npm run prebuild`). This results in a [`index.js`](index.js). Google Closure Compiler (the JavaScript port) is used to optimize, minify, and transpile this to `dist/mudder.min.js` and can be invoked by `yarn build` (or `npm run build`).
+
+## Literate source
 
 **Requirement** A function that, given two strings, returns one or more strings lexicographically between them (see [Java’s `compareTo` docs](http://docs.oracle.com/javase/8/docs/api/java/lang/String.html#compareTo-java.lang.String-) for a cogent summary of lexicographical ordering).
 
@@ -333,8 +391,8 @@ function SymbolTable(symbolsArr, symbolsMap) {
   if (typeof symbolsMap === 'undefined') {
     symbolsMap = new Map(symbolsArr.map((str, idx) => [str, idx]));
   } else if (symbolsMap instanceof Object && !(symbolsMap instanceof Map)) {
-    symbolsMap = new Map(Object.entries(symbolsMap)); // [🌪]
-  } else {
+    symbolsMap = new Map(Object.entries(symbolsMap));
+  } else if (!(symbolsMap instanceof Map) ){
     throw new TypeError('symbolsMap can be omitted, a Map, or an Object');
   }
 
@@ -357,25 +415,6 @@ function SymbolTable(symbolsArr, symbolsMap) {
 ~~~
 
 A programmatic note: around `[⛈]` we’re making sure that forgetting `new` when calling `SymbolTable` will throw an exception. It’s a simple solution to the [JavaScript constructor problem](http://raganwald.com/2014/07/09/javascript-constructor-problem.html#solution-kill-it-with-fire)
-
-A microscopic programmatic note: at `[🌪]` we use an ES2017 function, [`Object.entries`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/entries). Node (my development environment in Atom) currently doesn’t support this, so here’s a polyfill that I need to run during development. (If you’re reading this in as an interactive document in a browser that supports `Object.entries`, you won’t have to do anything like this. If you’re using a browser that doesn’t support this, write to me and I’ll use a browser-enabled polyfill.)
-~~~js
-var entries = require('object.entries');
-if (!Object.entries) {
-  entries.shim();
-}
-~~~
-
-~~~js
-import entries from "object.entries";
-if (!Object.entries) {
-  entries.shim();
-}
-// < export mudder.js
-~~~
-
-
-Now.
 
 Let’s make sure the constructor at least works:
 ~~~js
@@ -494,7 +533,8 @@ SymbolTable.prototype.stringToDigits = function(string) {
         'parsing string without prefix code is unsupported. Pass in array of stringy symbols?');
   }
   if (typeof string === 'string') {
-    const re = new RegExp('(' + this.num2sym.join('|') + ')', 'g');
+    const re =
+        new RegExp('(' + Array.from(this.sym2num.keys()).join('|') + ')', 'g');
     string = string.match(re);
   }
   return string.map(symbol => this.sym2num.get(symbol));
@@ -537,6 +577,7 @@ SymbolTable.prototype.numberToString = function(num, base) {
 SymbolTable.prototype.stringToNumber = function(num, base) {
   return this.digitsToNumber(this.stringToDigits(num), base);
 };
+// < export mudder.js
 ~~~
 With these, `SymbolTable` is `parseInt` and `Number.prototype.toString` super-charged.
 
@@ -863,7 +904,7 @@ function truncateLexHigher(lo, hi) {
   return [ lo, hi ];
 }
 
-SymbolTable.prototype.mudder = function(a, b, base, numStrings) {
+SymbolTable.prototype.mudder = function(a, b, numStrings, base) {
   base = base || this.maxBase;
   [a, b] = truncateLexHigher(a, b);
   const ad = this.stringToDigits(a, base);
@@ -903,11 +944,28 @@ decimal.mudder('2', '34502105342105402154', B, 10)
 Let’s make a few useful symbol tables;
 
 ~~~js
-var base62 = new SymbolTable(
-    '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz');
-var base36 = new SymbolTable('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ');
-var alphaupper = new SymbolTable('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
-var alphalower = new SymbolTable('abcdefghijklmnopqrstuvwxyz');
+var iter = (char, len) => Array.from(
+    Array(len), (_, i) => String.fromCharCode(char.charCodeAt(0) + i));
+
+var base62 =
+    new SymbolTable(iter('0', 10).concat(iter('A', 26)).concat(iter('a', 26)));
+
+// Base36 should use lowercase since that’s what Number.toString outputs.
+var base36arr = iter('0', 10).concat(iter('a', 26));
+var base36keys = base36arr.concat(iter('A', 26));
+function range(n) { return Array.from(Array(n), (_, i) => i); }
+var base36vals = range(10)
+                     .concat(range(26).map(i => i + 10))
+                     .concat(range(26).map(i => i + 10));
+function zip(a, b) {
+  return Array.from(Array(a.length), (_, i) => [a[i], b[i]]);
+}
+var base36 = new SymbolTable(base36arr, new Map(zip(base36keys, base36vals)));
+
+var alphabet = new SymbolTable(iter('a', 26),
+                               new Map(zip(iter('a', 26).concat(iter('A', 26)),
+                                           range(26).concat(range(26)))));
+
 // < export mudder.js
 ~~~
 
@@ -915,61 +973,15 @@ And make it an ES2015 module:
 
 ~~~js
 export {SymbolTable, base62, base36, alphaupper, alphalower};
+~~~
+
+Actually, make it a standard Node module:
+
+~~~js
+module.exports = {SymbolTable, base62, base36, alphabet, longLinspace};
 // < export mudder.js
 ~~~
 
 ##References
 
 Cuneiform: http://it.stlawu.edu/~dmelvill/mesomath/Numbers.html and https://en.wikipedia.org/wiki/Sexagesimal#Babylonian_mathematics and Cuneiform Composite from http://oracc.museum.upenn.edu/doc/help/visitingoracc/fonts/index.html
-
-
-## Unused functions
-~~~js
-// no-hydrogen
-function rightpad(arr, finalLength, val) {
-  const padlen = Math.max(0, finalLength - arr.length);
-  return arr.concat(Array(padlen).fill(val || 0));
-}
-
-function longAddxxxxxx(a, b, base) {
-  if (a.length < b.length) {
-    a = rightpad(a, b.length);
-  } else if (b.length < a.length) {
-    b = rightpad(b, a.length);
-  }
-  const res = a.reduceRight((accum, ai, i) => {
-    const sum = b[i] + ai + accum.carry;
-    return {
-      sum : accum.sum.concat(sum < base ? sum : sum - base),
-      carry : sum >= base
-    };
-  }, {sum : [], carry : 0});
-  res.sum.reverse();
-  return res;
-}
-
-function longAddxxx(a, b, base) {
-  // sum starts out as copy of longer
-  const sum = a.length < b.length ? b.slice() : a.slice();
-  // short is a reference to the shorter
-  const short = !(a.length < b.length) ? b : a;
-
-  let carry = 0;
-  for (let idx = short.length - 1; idx >= 0; idx--) {
-    let tmp = sum[idx] + short[idx] + carry;
-    if (tmp >= base) {
-      sum[idx] = tmp - base;
-      carry = 1;
-    } else {
-      sum[idx] = tmp;
-      carry = 0;
-    }
-  }
-  return {sum, overflow : carry};
-};
-
-function linspace(a, b, num) {
-  const δ = (b - a) / (num - 1);
-  return Array.from(Array(num), (_, i) => a + δ * i);
-}
-~~~

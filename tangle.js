@@ -5,4 +5,4 @@ var exportStrings =
   file.match(/~~~js\n([\S\s]*?)~~~/g)
     .filter(s => s.indexOf('< export') >= 0)
     .map(s => s.replace(/~~~$/, '').replace(/^~~~[a-z]*\s/, ''));
-fs.writeFileSync('src/mudder.js', exportStrings.join('\n'));
+fs.writeFileSync('index.js', exportStrings.join('\n'));

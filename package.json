@@ -1,14 +1,12 @@
 {
   "name": "mudder",
-  "version": "0.0.1",
-  "description": "Find lexicographical midpoints between strings",
+  "version": "1.0.0",
+  "description": "Find lexicographical points between strings",
   "main": "dist/mudder.js",
-  "module": "index",
-  "jsnext:main": "index",
   "scripts": {
-    "pretest": "node tangle.js && rm -fr dist && mkdir -p dist && rollup -c",
-    "test": "tape 'test/**/*-test.js'",
-    "build": "npm run test && uglifyjs dist/mudder.js -c -m -o dist/mudder.min.js"
+    "pretest": "node tangle.js && rm -fr dist && mkdir -p dist",
+    "test": "npm run pretest && tape 'test/**/*-test.js'",
+    "build": "npm run pretest && node_modules/.bin/google-closure-compiler-js --createSourceMap true index.js > dist/mudder.min.js"
   },
   "keywords": [
     "string",
@@ -25,17 +23,9 @@
     "type": "git",
     "url": "https://github.com/fasiha/mudderjs.git"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "devDependencies": {
-    "babel-preset-es2015-rollup": "^1.2.0",
-    "object.entries": "^1.0.3",
-    "rollup": "^0.34.10",
-    "rollup-plugin-babel": "^2.6.1",
-    "rollup-plugin-commonjs": "^5.0.4",
-    "rollup-plugin-node-resolve": "^2.0.0",
-    "source-map-support": "^0.4.2",
-    "tape": "^4.6.0",
-    "uglify-js": "^2.7.3"
+    "google-closure-compiler-js": "^20170521.0.0",
+    "tape": "^4.6.0"
   }
 }
