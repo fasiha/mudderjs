@@ -60,7 +60,9 @@ There are very few restrictions on what symbols the `SymbolTable` constructor ac
 
 This library is written as a literate document: in this `README.md`, prose explanations and code explanations surround the few bits of source code that actually make up the library. (Caveat: I had to rush near the end so the last few functions lack prose discussion—sorry! Todo!) Fenced code blocks that contain the string `< export FOO` are appended to the file `FOO`.
 
-The Markdown “literate source” `README.md` is “tangled” into actual source code by [`tangle.js`](tangle.js) and can be invoked by `yarn prebuild` (or `npm run prebuild`). This results in a [`index.js`](index.js). Google Closure Compiler (the JavaScript port) is used to optimize, minify, and transpile this to `dist/mudder.min.js` and can be invoked by `yarn build` (or `npm run build`).
+The Markdown “literate source” `README.md` is “tangled” into actual source code by [`tangle.js`](tangle.js) and can be invoked by `yarn prebuild` (or `npm run prebuild`).
+
+This results in a [`index.js`](index.js). Browserify makes this into a Universal Module (UMD) which is then optimized, minified, and transpiled by Google Closure Compiler (the JavaScript port) to `dist/mudder.min.js`. This can be invoked by `yarn build` (or `npm run build`).
 
 ## Literate source
 
