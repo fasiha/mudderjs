@@ -214,17 +214,28 @@ function chopDigits(rock, water) {
   return water;
 }
 
+function lexicographicLessThanArray(a, b) {
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    if (a[i] === b[i]) {
+      continue;
+    }
+    return a[i] < b[i];
+  }
+  return a.length < b.length;
+}
+
 function chopSuccessiveDigits(strings) {
-  const reversed = strings[0] > strings[1];
+  const reversed = !lexicographicLessThanArray(strings[0], strings[1]);
   if (reversed) {
     strings.reverse();
   }
-  const result = strings.slice(1).reduce(
-      (accum, curr) =>
-          accum.concat([ chopDigits(accum[accum.length - 1], curr) ]),
-      [ strings[0] ]);
+  const result =
+    strings.slice(1).reduce((accum, curr) => accum.concat(
+                              [ chopDigits(accum[accum.length - 1], curr) ]),
+                            [ strings[0] ]);
   if (reversed) {
-    return result.reverse();
+    result.reverse();
   }
   return result;
 }

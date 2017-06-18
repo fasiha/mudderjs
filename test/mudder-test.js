@@ -8,12 +8,21 @@ tape("Reasonable values", function(test) {
   test.end();
 });
 
-tape("Reversing start/end reverses outputs", function(test) {
+tape("Reversing start/end reverses outputs: controlled cases", function(test) {
   const decimal = new mudder.SymbolTable('0123456789');
-  for (let num of [1, 12]) {
-    const fwd = decimal.mudder('1', '2', 12);
-    const rev = decimal.mudder('2', '1', 12);
-    test.equal(rev.slice().reverse().join(''), fwd.join(''), "fwd = rev");
+  for (let num of Array.from(Array(12), (_, i) => i + 1)) {
+    const fwd = decimal.mudder('1', '2', num);
+    const rev = decimal.mudder('2', '1', num);
+    test.equal(rev.slice().reverse().join(''), fwd.join(''),
+               "fwd = rev, " + num);
+    test.ok(fwd.reduce((accum, curr, i, arr) =>
+                         arr[i - 1] ? accum && (arr[i - 1] < curr) : true,
+                       true),
+            'fwd all increasing');
+    test.ok(rev.reduce((accum, curr, i, arr) =>
+                         arr[i - 1] ? accum && (arr[i - 1] > curr) : true,
+                       true),
+            'rev all decreasing');
   }
   test.end();
 });
