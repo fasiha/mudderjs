@@ -8,9 +8,11 @@ The name came to me while I was writing an early version that called the central
 
 ## Quickstart
 
-**Node.js** `yarn add mudder` (or `npm install --save mudder`), then `var mudder = require('mudder')`.
+**Node.js** `npm install --save mudder`, then `var mudder = require('mudder')`.
 
 **Browser** Download [`mudder.min.js`](dist/mudder.min.js), then include it in your HTML: `<script src="mudder.min.js"></script>`. This loads the `mudder` object into the browser’s global namespace.
+
+**Try right now** My [blog post](https://fasiha.github.io/post/mudder/) lets you interactively experiment with this library.
 
 **Example usage** Create a new symbol table with the list of characters you want to use. In this example, we consider lowercase hexadecimal strings:
 ```js
@@ -18,7 +20,7 @@ var mudder = require('mudder'); // only in Node
 var hex = new mudder.SymbolTable('0123456789abcdef');
 var hexstrings = hex.mudder('ffff', 'fe0f', 3);
 console.log(hexstrings);
-// [ 'ff8', 'ff07', 'fe' ]
+// [ 'ff8', 'ff', 'fe8' ]
 ```
 The three strings are guaranteed to be the shortest and as-close-to-evenly-spaced between the two original strings (`ffff` and `fe0f`, in this case) as possible.
 
