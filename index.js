@@ -245,7 +245,6 @@ function truncateLexHigher(lo, hi) {
   if (swapped) {
     [lo, hi] = [ hi, lo ];
   }
-  hi = hi.slice(0, lo.length + 1);
   if (swapped) {
     return [ hi, lo ];
   }

@@ -55,3 +55,14 @@ tape("Matches parseInt/toString", function(test) {
   test.equal(mudder.base36.stringToNumber('FE0F'), parseInt('FE0F', 36));
   test.end();
 })
+
+tape("Fixes #1: repeated recursive subdivision", function(test) {
+  let right = 'z';
+  for (let i = 0; i < 50; i++) {
+    let newr = mudder.alphabet.mudder('a', right)[0];
+    test.notEqual('a', newr);
+    test.notEqual(right, newr);
+    right = newr;
+  }
+  test.end();
+})
