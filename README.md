@@ -1000,6 +1000,6 @@ module.exports = {SymbolTable, base62, base36, alphabet, longLinspace};
 // < export mudder.js
 ~~~
 
-##References
+## References
 
 Cuneiform: http://it.stlawu.edu/~dmelvill/mesomath/Numbers.html and https://en.wikipedia.org/wiki/Sexagesimal#Babylonian_mathematics and Cuneiform Composite from http://oracc.museum.upenn.edu/doc/help/visitingoracc/fonts/index.html
