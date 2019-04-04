@@ -80,6 +80,8 @@ Similarly, if `cs = lexmid(a, b, N)` is an `N>1`-element array of strings, `a �
 
 Since many databases are happy to sort entries using stringy fields, let’s just use strings instead of numbers. This library aids in the creation of new strings that lexicographically sort between two other strings.
 
+(N.B. After writing this library, I discovered Joe Nelson’s blog post [“User-defined Order in SQL”](https://begriffs.com/posts/2018-03-20-user-defined-order.html) that offers a number of other solutions, as well as a cogent statement of the problem. Some of you may know Joe from his work on PostgREST.)
+
 **Desiderata** I’d like to be able to insert thousands of documents between adjacent ones, so `lexmid()` must never return strings which can’t be “subdivided” further. But memory isn’t free, so shorter strings are preferred.
 
 **Prior art** [@m69’s algorithm](http://stackoverflow.com/a/38927158/500207) is perfect: you give it two alphabetic strings containing just `a-z`, and you get back a short alphabetic string that’s “roughly half-way” between them.
