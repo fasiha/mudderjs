@@ -65,4 +65,16 @@ tape("Fixes #1: repeated recursive subdivision", function(test) {
     right = newr;
   }
   test.end();
-})
+});
+
+tape('Fixes #2: throws when fed lexicographically-adjacent strings',
+     function(test) {
+       for (let i = 2; i < 10; i++) {
+         test.throws(() => mudder.alphabet.mudder('x' +
+                                                    'a'.repeat(i),
+                                                  'xa'));
+         test.throws(() => mudder.alphabet.mudder('xa', 'x' +
+                                                          'a'.repeat(i)));
+       }
+       test.end();
+     });

@@ -849,6 +849,9 @@ function longLinspace(a, b, base, N) {
   } else if (b.length < a.length) {
     b = rightpad(b, a.length);
   }
+  if (a.length === b.length && a.every((a, i) => a === b[i])) {
+    throw new Error('Start and end strings lexicographically inseparable');
+  }
   const aDiv = longDiv(a, N + 1, base);
   const bDiv = longDiv(b, N + 1, base);
   let as = [ aDiv ];
