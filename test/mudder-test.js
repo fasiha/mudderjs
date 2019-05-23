@@ -78,3 +78,18 @@ tape('Fixes #2: throws when fed lexicographically-adjacent strings',
        }
        test.end();
      });
+
+tape('Fixes #3: allow calling mudder with just number', function(test) {
+  for (const abc of [mudder.alphabet.mudder(100), mudder.base36.mudder(100),
+                     mudder.base62.mudder(100)]) {
+    test.ok(abc.every((c, i) => (!i) || (abc[i - 1] < c)));
+  }
+  test.ok(mudder.alphabet.mudder());
+  test.end();
+});
+
+tape('More #3: no need to define start/end', function(test) {
+  test.ok(mudder.base36.mudder('', 'foo', 30));
+  test.ok(mudder.base36.mudder('foo', '', 30));
+  test.end();
+});

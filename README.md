@@ -29,11 +29,12 @@ As a convenience, the following pre-generated symbol table are provided:
 - `base36`: `0-9a-z` (lower- and upper-case accepted, to match `Number.toString`),
 - `alphabet`: `a-z` (lower- and upper-case accepted).
 
+You may also omit the start and/or end strings, and provide only the number of strings to subdivide the entire string space. (Even this number may also be omitted if you just want one string in the middle of the string space.)
 ```js
 var mudder = require('mudder'); // only in Node
-var strings = mudder.base62.mudder('alphaNUM341C', 'beta', 3);
+var strings = mudder.base62.mudder(1000);
 console.log(strings);
-// [ 'az', 'b', 'bR' ]
+// [ '03', '07', '0B', ... 'zo', 'zs', 'zw' ]
 ```
 
 ## API
@@ -50,7 +51,13 @@ There are very few restrictions on what symbols the `SymbolTable` constructor ac
 
 ### Generate strings
 
-`m.mudder(start, end[, number[, base]])` for strings, or array-of-strings, `start` and `end`, returns a `number`-length (default one) array of strings. `base` is an integer defaulting to the size of the symbol table `m`, but can be less than it if you, for some reason, wish to use only a subset of the symbol table. `start` can be lexicographically less than or greater than `end`, but in either case, the returned array will be lexicographically sorted between them. If the symbol table was *not* prefix-free, the function will refuse to operate on *strings* `start`/`end` because, without the prefix-free criterion, a string can’t be parsed unambiguously: you have to split the string into an array of stringy symbols yourself. Invalid or unrecognized symbols are silently ignored.
+**`m.mudder(start = '', end = '' [, number[, base]])`** for strings, or array-of-strings, `start` and `end`, returns a `number`-length (default one) array of strings. `base` is an integer defaulting to the size of the symbol table `m`, but can be less than it if you, for some reason, wish to use only a subset of the symbol table. `start` can be lexicographically less than or greater than `end`, but in either case, the returned array will be lexicographically sorted between them.
+
+If `start` or `end` are non-truthy, the first is replaced by the first symbol, and the second is replaced by repeating the final symbol several times—e.g., for a numeric symbol table, `start` would default to `0` and `end` to `999999` or similar. This is done so that the strings returned cover 99.99...% of the available string space.
+
+> If the symbol table was *not* prefix-free, the function will refuse to operate on *strings* `start`/`end` because, without the prefix-free criterion, a string can’t be parsed unambiguously: you have to split the string into an array of stringy symbols yourself. Invalid or unrecognized symbols are silently ignored.
+
+**`m.mudder(number = 1)`** is equivalent to `m.mudder('', '', number)`. See above.
 
 ### For fun: string–number conversion
 
@@ -928,11 +935,19 @@ function truncateLexHigher(lo, hi) {
 }
 
 SymbolTable.prototype.mudder = function(a, b, numStrings, base) {
+  if (typeof a === 'number'){
+    numStrings = a;
+    a = '';
+    b = '';
+  }
+  a = a || this.num2sym[0];
+  b = b || this.num2sym[this.num2sym.length - 1].repeat(6);
+  numStrings = numStrings || 1;
   base = base || this.maxBase;
   [a, b] = truncateLexHigher(a, b);
   const ad = this.stringToDigits(a, base);
   const bd = this.stringToDigits(b, base);
-  const intermediateDigits = longLinspace(ad, bd, base, numStrings || 1);
+  const intermediateDigits = longLinspace(ad, bd, base, numStrings);
   let finalDigits = intermediateDigits.map(
       v => v.res.concat(this.roundFraction(v.rem, v.den, base)));
   finalDigits.unshift(ad);

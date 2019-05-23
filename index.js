@@ -255,11 +255,19 @@ function truncateLexHigher(lo, hi) {
 }
 
 SymbolTable.prototype.mudder = function(a, b, numStrings, base) {
+  if (typeof a === 'number'){
+    numStrings = a;
+    a = '';
+    b = '';
+  }
+  a = a || this.num2sym[0];
+  b = b || this.num2sym[this.num2sym.length - 1].repeat(6);
+  numStrings = numStrings || 1;
   base = base || this.maxBase;
   [a, b] = truncateLexHigher(a, b);
   const ad = this.stringToDigits(a, base);
   const bd = this.stringToDigits(b, base);
-  const intermediateDigits = longLinspace(ad, bd, base, numStrings || 1);
+  const intermediateDigits = longLinspace(ad, bd, base, numStrings);
   let finalDigits = intermediateDigits.map(
       v => v.res.concat(this.roundFraction(v.rem, v.den, base)));
   finalDigits.unshift(ad);
