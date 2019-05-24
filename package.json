@@ -1,6 +1,6 @@
 {
   "name": "mudder",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Find lexicographical points between strings",
   "main": "dist/mudder.js",
   "scripts": {
