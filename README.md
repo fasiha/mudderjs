@@ -829,6 +829,60 @@ longDiv([ 1, 0 ], 2, 10);
 ~~~
 
 ~~~js
+/**
+ *
+ * @param {number[]} a larger number, as digits array
+ * @param {number[]} b smaller number, as digits array
+ * @param {number} base
+ * @param {[number, number]} rem `a` and `b`'s remainders
+ * @param {number} den denominator for the remainders
+ * @returns {{res: number[], den: number, rem: number}}
+ */
+function longSubSameLen(a, b, base, rem = [], den = 0) {
+  if (a.length !== b.length) { throw new Error('same length arrays needed'); }
+  if (rem.length !== 0 && rem.length !== 2) { throw new Error('zero or two remainders expected'); }
+  a = a.slice(); // pre-emptively copy
+  if (rem.length) {
+    a = a.concat(rem[0]);
+    b = b.slice().concat(rem[1]);
+  }
+  const ret = Array(a.length).fill(0);
+
+  // this is a LOOP LABEL! https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/label
+  OUTER: for (let i = a.length - 1; i >= 0; --i) {
+    // console.log({a, ret})
+    if (a[i] >= b[i]) {
+      ret[i] = a[i] - b[i];
+      continue;
+    }
+    if (i === 0) { throw new Error('cannot go negative'); }
+    // look for a digit to the left to borrow from
+    for (let j = i - 1; j >= 0; --j) {
+      if (a[j] > 0) {
+        // found a non-zero digit. Decrement it
+        a[j]--;
+        // increment digits to its right by `base-1`
+        for (let k = j + 1; k < i; ++k) { a[k] += base - 1; }
+        // until you reach the digit you couldn't subtract
+        ret[i] = a[i] + (rem.length > 0 && i === a.length - 1 ? den : base) - b[i];
+        continue OUTER;
+      }
+    }
+    // should have `continue`d `OUTER` loop
+    throw new Error('failed to find digit to borrow from');
+  }
+  if (rem.length) { return {res: ret.slice(0, -1), rem: ret[ret.length - 1], den}; }
+  return {res: ret, rem: 0, den};
+}
+
+/**
+ *
+ * @param {number[]} a array of digits
+ * @param {number[]} b array of digits
+ * @param {number} base
+ * @param {number} rem remainder
+ * @param {number} den denominator under remainder
+ */
 function longAddSameLen(a, b, base, rem, den) {
   if (a.length !== b.length) {
     throw new Error('same length arrays needed');
@@ -850,7 +904,16 @@ function rightpad(arr, finalLength, val) {
   return arr.concat(Array(padlen).fill(val || 0));
 }
 
-function longLinspace(a, b, base, N) {
+/**
+ * Returns `(a + (b-a)/M*n)` for n=[1, 2, ..., N], where `N<M`.
+ * @param {number[]} a left array of digits
+ * @param {number[]} b right array of digits
+ * @param {number} base
+ * @param {number} N number of linearly-spaced numbers to return
+ * @param {number} M number of subdivisions to make, `M>N`
+ * @returns {{res: number[]; rem: number; den: number;}[]} `N` numbers
+ */
+function longLinspace(a, b, base, N, M) {
   if (a.length < b.length) {
     a = rightpad(a, b.length);
   } else if (b.length < a.length) {
@@ -859,21 +922,19 @@ function longLinspace(a, b, base, N) {
   if (a.length === b.length && a.every((a, i) => a === b[i])) {
     throw new Error('Start and end strings lexicographically inseparable');
   }
-  const aDiv = longDiv(a, N + 1, base);
-  const bDiv = longDiv(b, N + 1, base);
-  let as = [ aDiv ];
-  let bs = [ bDiv ];
-  for (let i = 2; i <= N; i++) {
-    as.push(longAddSameLen(as[i - 2].res, aDiv.res, base,
-                           aDiv.rem + as[i - 2].rem, N + 1));
-    bs.push(longAddSameLen(bs[i - 2].res, bDiv.res, base,
-                           bDiv.rem + bs[i - 2].rem, N + 1));
+  const aDiv = longDiv(a, M, base);
+  const bDiv = longDiv(b, M, base);
+  let aPrev = longSubSameLen(a, aDiv.res, base, [0, aDiv.rem], M);
+  let bPrev = bDiv;
+  const ret = [];
+  for (let n = 1; n <= N; ++n) {
+    const x = longAddSameLen(aPrev.res, bPrev.res, base, aPrev.rem + bPrev.rem, M);
+    ret.push(x);
+    aPrev = longSubSameLen(aPrev.res, aDiv.res, base, [aPrev.rem, aDiv.rem], M);
+    bPrev = longAddSameLen(bPrev.res, bDiv.res, base, bPrev.rem + bDiv.rem, M);
   }
-  as.reverse();
-  return as.map((a, i) => longAddSameLen(a.res, bs[i].res, base,
-                                         a.rem + bs[i].rem, N + 1));
+  return ret;
 }
-
 function leftpad(arr, finalLength, val) {
   const padlen = Math.max(0, finalLength - arr.length);
   return Array(padlen).fill(val || 0).concat(arr);
@@ -934,7 +995,7 @@ function truncateLexHigher(lo, hi) {
   return [ lo, hi ];
 }
 
-SymbolTable.prototype.mudder = function(a, b, numStrings, base) {
+SymbolTable.prototype.mudder = function(a, b, numStrings, base, numDivisions) {
   if (typeof a === 'number'){
     numStrings = a;
     a = '';
@@ -944,10 +1005,12 @@ SymbolTable.prototype.mudder = function(a, b, numStrings, base) {
   b = b || this.num2sym[this.num2sym.length - 1].repeat(6);
   numStrings = numStrings || 1;
   base = base || this.maxBase;
+  numDivisions = numDivisions || numStrings + 1;
+
   [a, b] = truncateLexHigher(a, b);
   const ad = this.stringToDigits(a, base);
   const bd = this.stringToDigits(b, base);
-  const intermediateDigits = longLinspace(ad, bd, base, numStrings);
+  const intermediateDigits = longLinspace(ad, bd, base, numStrings, numDivisions);
   let finalDigits = intermediateDigits.map(
       v => v.res.concat(this.roundFraction(v.rem, v.den, base)));
   finalDigits.unshift(ad);
