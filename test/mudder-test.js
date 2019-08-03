@@ -76,16 +76,32 @@ tape('More #3: no need to define start/end', function(test) {
 
 tape('Fix #7: specify number of divisions', t => {
   const decimal = new mudder.SymbolTable('0123456789');
-  const fine = decimal.mudder('9', undefined, 100);
-  const partialFine = decimal.mudder('9', undefined, 5, undefined, 101);
-  const coarse = decimal.mudder('9', undefined, 5);
+  {
+    const fine = decimal.mudder('9', undefined, 100);
+    const partialFine = decimal.mudder('9', undefined, 5, undefined, 101);
+    const coarse = decimal.mudder('9', undefined, 5);
 
-  t.ok(allLessThan(fine));
-  t.ok(allLessThan(partialFine));
-  t.ok(allLessThan(coarse));
-  t.deepEqual(fine.slice(0, 5), partialFine);
-  t.equal(partialFine.length, coarse.length);
-  t.notDeepEqual(partialFine, coarse);
+    t.ok(allLessThan(fine));
+    t.ok(allLessThan(partialFine));
+    t.ok(allLessThan(coarse));
+    t.deepEqual(fine.slice(0, 5), partialFine);
+    t.equal(partialFine.length, coarse.length);
+    t.notDeepEqual(partialFine, coarse);
+  }
+  // similarly working backwards
+  {
+    const fine = decimal.mudder('9', '8', 100);
+    const partialFine = decimal.mudder('9', '8', 5, undefined, 101);
+    const coarse = decimal.mudder('9', '8', 5);
+    console.log({fine, partialFine, coarse})
+
+    t.ok(allGreaterThan(fine));
+    t.ok(allGreaterThan(partialFine));
+    t.ok(allGreaterThan(coarse));
+
+    // omit last because when going from high to low, the final might be rounded
+    t.deepEqual(fine.slice(0, 4), partialFine.slice(0, 4));
+  }
   t.end();
 });
 
