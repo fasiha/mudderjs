@@ -51,9 +51,15 @@ There are very few restrictions on what symbols the `SymbolTable` constructor ac
 
 ### Generate strings
 
-**`m.mudder(start = '', end = '' [, number[, base]])`** for strings, or array-of-strings, `start` and `end`, returns a `number`-length (default one) array of strings. `base` is an integer defaulting to the size of the symbol table `m`, but can be less than it if you, for some reason, wish to use only a subset of the symbol table. `start` can be lexicographically less than or greater than `end`, but in either case, the returned array will be lexicographically sorted between them.
+**`m.mudder(start = '', end = '' [, numStrings[, base[, numDivisions]]])`** for strings, or array-of-strings, `start` and `end`, returns a `numStrings`-length (default one) array of strings.
+
+`base` is an integer defaulting to the size of the symbol table `m`, but can be less than it if you, for some reason, wish to use only a subset of the symbol table.
+
+`start` can be lexicographically less than or greater than `end`, but in either case, the returned array will be lexicographically sorted between them.
 
 If `start` or `end` are non-truthy, the first is replaced by the first symbol, and the second is replaced by repeating the final symbol several times—e.g., for a numeric symbol table, `start` would default to `0` and `end` to `999999` or similar. This is done so that the strings returned cover 99.99...% of the available string space.
+
+`numDivisions` defaults to `numStrings + 1` and must be greater than `numStrings`. It represents the number of pieces to subdivide the lexical space between `start` and `end` into. You can customize this to be (much) larger than `numStrings` in certain cases, such as when you know you are going to insert many strings between two endpoints, but only *one at a time*. For example, if you call `start = m.mudder(start, end, 1)[0]` over and over, you halve the space between the endpoints each call, eventually making the strings very long. If you knew you were going to do this, you can call `start = m.mudder(start, end, 1, undefined, 100)[0]`, i.e., set `numDivisons=100`, to subdivide the space between the endpoints a hundred time, and return just the first string.
 
 > If the symbol table was *not* prefix-free, the function will refuse to operate on *strings* `start`/`end` because, without the prefix-free criterion, a string can’t be parsed unambiguously: you have to split the string into an array of stringy symbols yourself. Invalid or unrecognized symbols are silently ignored.
 
