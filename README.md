@@ -1008,7 +1008,7 @@ SymbolTable.prototype.mudder = function(a, b, numStrings, base, numDivisions) {
     b = '';
   }
   a = a || this.num2sym[0];
-  b = b || this.num2sym[this.num2sym.length - 1].repeat(6);
+  b = b || this.num2sym[this.num2sym.length - 1].repeat(a.length + 6);
   numStrings = numStrings || 1;
   base = base || this.maxBase;
   numDivisions = numDivisions || numStrings + 1;

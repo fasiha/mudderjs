@@ -93,7 +93,6 @@ tape('Fix #7: specify number of divisions', t => {
     const fine = decimal.mudder('9', '8', 100);
     const partialFine = decimal.mudder('9', '8', 5, undefined, 101);
     const coarse = decimal.mudder('9', '8', 5);
-    console.log({fine, partialFine, coarse})
 
     t.ok(allGreaterThan(fine));
     t.ok(allGreaterThan(partialFine));
@@ -102,6 +101,11 @@ tape('Fix #7: specify number of divisions', t => {
     // omit last because when going from high to low, the final might be rounded
     t.deepEqual(fine.slice(0, 4), partialFine.slice(0, 4));
   }
+  t.end();
+});
+
+tape('Fix #8: better default end', t => {
+  t.ok(mudder.base36.mudder('z'.repeat(10))[0] !== mudder.base36.mudder('z'.repeat(15))[0]);
   t.end();
 });
 
