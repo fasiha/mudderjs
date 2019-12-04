@@ -2,9 +2,9 @@
 
 Generate lexicographically-spaced strings between two strings from pre-defined alphabets.
 
-The name came to me while I was writing an early version that called the central function “midder” (i.e., the mid-point between strings), which I took to calling “mudder” from the memorable episode of *Firefly* called “Jayestown”.
+The name came to me while I was writing an early version that called the central function “midder” (i.e., the mid-point between strings), which I took to calling “mudder” from the memorable episode of *Firefly* called “Jaynestown”.
 
-![The hero of Canton, the man they call Jayne. Best Show EVAR 😢. (c) Fox.](jayne.jpg)
+![The hero of Canton, the man they call Jayne. (c) Fox.](jayne.jpg)
 
 ## Quickstart
 
