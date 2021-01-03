@@ -2,7 +2,7 @@
   "name": "mudder",
   "version": "1.0.9",
   "description": "Find lexicographical points between strings",
-  "main": "dist/mudder.js",
+  "main": "dist/mudder.min.js",
   "scripts": {
     "pretest": "node tangle.js && rm -fr dist && mkdir -p dist",
     "test": "npm run pretest && tape 'test/**/*-test.js'",
