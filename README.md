@@ -12,6 +12,8 @@ The name came to me while I was writing an early version that called the central
 
 **Browser** Download [`mudder.min.js`](dist/mudder.min.js), then include it in your HTML: `<script src="mudder.min.js"></script>`. This loads the `mudder` object into the browser’s global namespace.
 
+**Ports** See [mudder_dart](https://pub.dev/packages/mudder_dart) for Dart/Flutter, contributed by [@tiagocpeixoto](https://github.com/tiagocpeixoto).
+
 **Try right now** My [blog post](https://fasiha.github.io/post/mudder/) lets you interactively experiment with this library.
 
 **Example usage** Create a new symbol table with the list of characters you want to use. In this example, we consider lowercase hexadecimal strings:
