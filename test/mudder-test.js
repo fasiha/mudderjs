@@ -109,6 +109,11 @@ tape('Fix #8: better default end', t => {
   t.end();
 });
 
+tape('Fix #16, numStrings 0 should return empty', t => {
+  t.ok(mudder.base62.mudder('hi', 'bye', 0).length === 0);
+  t.end();
+})
+
 function allLessThan(arr) {
   for (let i = 1; i < arr.length; i++) {
     if (arr[i - 1] > arr[i]) { return false; }
