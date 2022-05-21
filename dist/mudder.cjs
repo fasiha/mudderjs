@@ -95,7 +95,11 @@ SymbolTable.prototype.stringToNumber = function(num, base) {
 function longDiv(numeratorArr, den, base) {
   return numeratorArr.reduce((prev, curr) => {
     let newNum = curr + prev.rem * base;
-    return { res: prev.res.concat(Math.floor(newNum / den)), rem: newNum % den, den };
+    return {
+      res: prev.res.concat(Math.floor(newNum / den)),
+      rem: newNum % den,
+      den
+    };
   }, { res: [], rem: 0, den });
 }
 function longSubSameLen(a, b, base, rem = [], den = 0) {
@@ -191,8 +195,8 @@ SymbolTable.prototype.roundFraction = function(numerator, denominator, base) {
   var digits = this.numberToDigits(scaled, base);
   return leftpad(digits, places, 0);
 };
-function chopDigits(rock, water) {
-  for (let idx = 0; idx < water.length; idx++) {
+function chopDigits(rock, water, placesToKeep = 0) {
+  for (let idx = placesToKeep; idx < water.length; idx++) {
     if (water[idx] && rock[idx] !== water[idx]) {
       return water.slice(0, idx + 1);
     }
@@ -209,12 +213,12 @@ function lexicographicLessThanArray(a, b) {
   }
   return a.length < b.length;
 }
-function chopSuccessiveDigits(strings) {
+function chopSuccessiveDigits(strings, placesToKeep = 0) {
   const reversed = !lexicographicLessThanArray(strings[0], strings[1]);
   if (reversed) {
     strings.reverse();
   }
-  const result = strings.slice(1).reduce((accum, curr) => accum.concat([chopDigits(accum[accum.length - 1], curr)]), [strings[0]]);
+  const result = strings.slice(1).reduce((accum, curr) => accum.concat([chopDigits(accum[accum.length - 1], curr, placesToKeep)]), [strings[0]]);
   if (reversed) {
     result.reverse();
   }
@@ -230,7 +234,7 @@ function truncateLexHigher(lo, hi) {
   }
   return [lo, hi];
 }
-SymbolTable.prototype.mudder = function(a, b, numStrings, base, numDivisions) {
+SymbolTable.prototype.mudder = function(a, b, numStrings, base, numDivisions, placesToKeep = 0) {
   if (typeof a === "number") {
     numStrings = a;
     a = "";
@@ -248,7 +252,7 @@ SymbolTable.prototype.mudder = function(a, b, numStrings, base, numDivisions) {
   let finalDigits = intermediateDigits.map((v) => v.res.concat(this.roundFraction(v.rem, v.den, base)));
   finalDigits.unshift(ad);
   finalDigits.push(bd);
-  return chopSuccessiveDigits(finalDigits).slice(1, finalDigits.length - 1).map((v) => this.digitsToString(v));
+  return chopSuccessiveDigits(finalDigits, placesToKeep).slice(1, finalDigits.length - 1).map((v) => this.digitsToString(v));
 };
 var iter = (char, len) => Array.from(Array(len), (_, i) => String.fromCharCode(char.charCodeAt(0) + i));
 var base62 = new SymbolTable(iter("0", 10).concat(iter("A", 26)).concat(iter("a", 26)));
@@ -263,10 +267,4 @@ function zip(a, b) {
 }
 var base36 = new SymbolTable(base36arr, new Map(zip(base36keys, base36vals)));
 var alphabet = new SymbolTable(iter("a", 26), new Map(zip(iter("a", 26).concat(iter("A", 26)), range(26).concat(range(26)))));
-module.exports = {
-  SymbolTable,
-  base62,
-  base36,
-  alphabet,
-  longLinspace
-};
+module.exports = { SymbolTable, base62, base36, alphabet, longLinspace };

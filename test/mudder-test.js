@@ -1,5 +1,5 @@
 var tape = require("tape");
-var mudder = require("../");
+var mudder = require("../index");
 
 tape("Reasonable values", function(test) {
   const decimal = new mudder.SymbolTable('0123456789');
@@ -113,6 +113,21 @@ tape('Fix #16, numStrings 0 should return empty', t => {
   t.ok(mudder.base62.mudder('hi', 'bye', 0).length === 0);
   t.end();
 })
+
+tape('Give more flexibility in rounding when counting backwards', t => {
+  const numDivisions = [100, 1000, 10_000, 100_000];
+  {
+    const res = numDivisions.map(numDivisions => mudder.base62.mudder('V', '0', 1, undefined, numDivisions)[0]);
+    t.ok((new Set(res)).size === 1, 'by default, going backwards by a tiny amount gets rounded down to a short string');
+  }
+  {
+    const places_NEW = 6;
+    const res =
+        numDivisions.map(numDivisions => mudder.base62.mudder('V', '0', 1, undefined, numDivisions, places_NEW)[0]);
+    t.ok((new Set(res)).size === numDivisions.length, 'but with a higher places count, they are unique');
+  }
+  t.end();
+});
 
 function allLessThan(arr) {
   for (let i = 1; i < arr.length; i++) {
