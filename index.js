@@ -7,7 +7,9 @@ function isPrefixCode(strings) {
       if (j === i) { // [🍅]
         continue;
       }
-      if (i.startsWith(j)) { return false; }
+      if (i.startsWith(j)) {
+        return false;
+      }
     }
   }
   return true;
@@ -48,7 +50,9 @@ string couldn't be parsed because that symbol wasn't in symbolMap.
 */
 function SymbolTable(symbolsArr, symbolsMap) {
   'use strict'; // [⛈]
-  if (typeof this === 'undefined') { throw new TypeError('constructor called as a function') };
+  if (typeof this === 'undefined') {
+    throw new TypeError('constructor called as a function')
+  };
 
   // Condition the input `symbolsArr`
   if (typeof symbolsArr === 'string') {
@@ -64,7 +68,7 @@ function SymbolTable(symbolsArr, symbolsMap) {
     symbolsMap = new Map(symbolsArr.map((str, idx) => [str, idx]));
   } else if (symbolsMap instanceof Object && !(symbolsMap instanceof Map)) {
     symbolsMap = new Map(Object.entries(symbolsMap));
-  } else if (!(symbolsMap instanceof Map)) {
+  } else if (!(symbolsMap instanceof Map) ){
     throw new TypeError('symbolsMap can be omitted, a Map, or an Object');
   }
 
@@ -73,7 +77,8 @@ function SymbolTable(symbolsArr, symbolsMap) {
   let symbolsValuesSet = new Set(symbolsMap.values());
   for (let i = 0; i < symbolsArr.length; i++) {
     if (!symbolsValuesSet.has(i)) {
-      throw new RangeError(symbolsArr.length + ' symbols given but ' + i + ' not found in symbol table');
+      throw new RangeError(symbolsArr.length + ' symbols given but ' + i +
+                           ' not found in symbol table');
     }
   }
 
@@ -91,19 +96,23 @@ SymbolTable.prototype.numberToDigits = function(num, base) {
     digits.push(num % base);
     num = Math.floor(num / base);
   }
-  return digits.length ? digits.reverse() : [0];
+  return digits.length ? digits.reverse() : [ 0 ];
 };
 // < export mudder.js
 
-SymbolTable.prototype.digitsToString = function(digits) { return digits.map(n => this.num2sym[n]).join(''); };
+SymbolTable.prototype.digitsToString = function(digits) {
+  return digits.map(n => this.num2sym[n]).join('');
+};
 // < export mudder.js
 
 SymbolTable.prototype.stringToDigits = function(string) {
   if (!this.isPrefixCode && typeof string === 'string') {
-    throw new TypeError('parsing string without prefix code is unsupported. Pass in array of stringy symbols?');
+    throw new TypeError(
+        'parsing string without prefix code is unsupported. Pass in array of stringy symbols?');
   }
   if (typeof string === 'string') {
-    const re = new RegExp('(' + Array.from(this.sym2num.keys()).join('|') + ')', 'g');
+    const re =
+        new RegExp('(' + Array.from(this.sym2num.keys()).join('|') + ')', 'g');
     string = string.match(re);
   }
   return string.map(symbol => this.sym2num.get(symbol));
@@ -121,17 +130,22 @@ SymbolTable.prototype.digitsToNumber = function(digits, base) {
 };
 // < export mudder.js
 
-SymbolTable.prototype.numberToString = function(num,
-                                                base) { return this.digitsToString(this.numberToDigits(num, base)); };
-SymbolTable.prototype.stringToNumber = function(num,
-                                                base) { return this.digitsToNumber(this.stringToDigits(num), base); };
+SymbolTable.prototype.numberToString = function(num, base) {
+  return this.digitsToString(this.numberToDigits(num, base));
+};
+SymbolTable.prototype.stringToNumber = function(num, base) {
+  return this.digitsToNumber(this.stringToDigits(num), base);
+};
 // < export mudder.js
 
 function longDiv(numeratorArr, den, base) {
   return numeratorArr.reduce((prev, curr) => {
     let newNum = curr + prev.rem * base;
-    return {res: prev.res.concat(Math.floor(newNum / den)), rem: newNum % den, den};
-  }, {res: [], rem: 0, den});
+    return {
+      res : prev.res.concat(Math.floor(newNum / den)),
+      rem : newNum % den, den
+    };
+  }, {res : [], rem : 0, den});
 }
 // < export mudder.js
 
@@ -190,9 +204,13 @@ function longSubSameLen(a, b, base, rem = [], den = 0) {
  * @param {number} den denominator under remainder
  */
 function longAddSameLen(a, b, base, rem, den) {
-  if (a.length !== b.length) { throw new Error('same length arrays needed'); }
+  if (a.length !== b.length) {
+    throw new Error('same length arrays needed');
+  }
   let carry = rem >= den, res = b.slice();
-  if (carry) { rem -= den; }
+  if (carry) {
+    rem -= den;
+  }
   a.reduceRight((_, ai, i) => {
     const result = ai + b[i] + carry;
     carry = result >= base;
@@ -251,9 +269,11 @@ SymbolTable.prototype.roundFraction = function(numerator, denominator, base) {
   return leftpad(digits, places, 0);
 };
 
-function chopDigits(rock, water) {
-  for (let idx = 0; idx < water.length; idx++) {
-    if (water[idx] && rock[idx] !== water[idx]) { return water.slice(0, idx + 1); }
+function chopDigits(rock, water, placesToKeep = 0) {
+  for (let idx = placesToKeep; idx < water.length; idx++) {
+    if (water[idx] && rock[idx] !== water[idx]) {
+      return water.slice(0, idx + 1);
+    }
   }
   return water;
 }
@@ -261,30 +281,42 @@ function chopDigits(rock, water) {
 function lexicographicLessThanArray(a, b) {
   const n = Math.min(a.length, b.length);
   for (let i = 0; i < n; i++) {
-    if (a[i] === b[i]) { continue; }
+    if (a[i] === b[i]) {
+      continue;
+    }
     return a[i] < b[i];
   }
   return a.length < b.length;
 }
 
-function chopSuccessiveDigits(strings) {
+function chopSuccessiveDigits(strings, placesToKeep = 0) {
   const reversed = !lexicographicLessThanArray(strings[0], strings[1]);
-  if (reversed) { strings.reverse(); }
+  if (reversed) {
+    strings.reverse();
+  }
   const result =
-      strings.slice(1).reduce((accum, curr) => accum.concat([chopDigits(accum[accum.length - 1], curr)]), [strings[0]]);
-  if (reversed) { result.reverse(); }
+    strings.slice(1).reduce((accum, curr) => accum.concat(
+                              [ chopDigits(accum[accum.length - 1], curr, placesToKeep ) ]),
+                            [ strings[0] ]);
+  if (reversed) {
+    result.reverse();
+  }
   return result;
 }
 
 function truncateLexHigher(lo, hi) {
   const swapped = lo > hi;
-  if (swapped) { [lo, hi] = [hi, lo]; }
-  if (swapped) { return [hi, lo]; }
-  return [lo, hi];
+  if (swapped) {
+    [lo, hi] = [ hi, lo ];
+  }
+  if (swapped) {
+    return [ hi, lo ];
+  }
+  return [ lo, hi ];
 }
 
-SymbolTable.prototype.mudder = function(a, b, numStrings, base, numDivisions) {
-  if (typeof a === 'number') {
+SymbolTable.prototype.mudder = function(a, b, numStrings, base, numDivisions, placesToKeep = 0) {
+  if (typeof a === 'number'){
     numStrings = a;
     a = '';
     b = '';
@@ -299,35 +331,39 @@ SymbolTable.prototype.mudder = function(a, b, numStrings, base, numDivisions) {
   const ad = this.stringToDigits(a, base);
   const bd = this.stringToDigits(b, base);
   const intermediateDigits = longLinspace(ad, bd, base, numStrings, numDivisions);
-  let finalDigits = intermediateDigits.map(v => v.res.concat(this.roundFraction(v.rem, v.den, base)));
+  let finalDigits = intermediateDigits.map(
+      v => v.res.concat(this.roundFraction(v.rem, v.den, base)));
   finalDigits.unshift(ad);
   finalDigits.push(bd);
-  return chopSuccessiveDigits(finalDigits).slice(1, finalDigits.length - 1).map(v => this.digitsToString(v));
+  return chopSuccessiveDigits(finalDigits, placesToKeep)
+      .slice(1, finalDigits.length - 1)
+      .map(v => this.digitsToString(v));
 };
 // < export mudder.js
 
-var iter = (char, len) => Array.from(Array(len), (_, i) => String.fromCharCode(char.charCodeAt(0) + i));
+var iter = (char, len) => Array.from(
+    Array(len), (_, i) => String.fromCharCode(char.charCodeAt(0) + i));
 
-var base62 = new SymbolTable(iter('0', 10).concat(iter('A', 26)).concat(iter('a', 26)));
+var base62 =
+    new SymbolTable(iter('0', 10).concat(iter('A', 26)).concat(iter('a', 26)));
 
 // Base36 should use lowercase since that’s what Number.toString outputs.
 var base36arr = iter('0', 10).concat(iter('a', 26));
 var base36keys = base36arr.concat(iter('A', 26));
 function range(n) { return Array.from(Array(n), (_, i) => i); }
-var base36vals = range(10).concat(range(26).map(i => i + 10)).concat(range(26).map(i => i + 10));
-function zip(a, b) { return Array.from(Array(a.length), (_, i) => [a[i], b[i]]); }
+var base36vals = range(10)
+                     .concat(range(26).map(i => i + 10))
+                     .concat(range(26).map(i => i + 10));
+function zip(a, b) {
+  return Array.from(Array(a.length), (_, i) => [a[i], b[i]]);
+}
 var base36 = new SymbolTable(base36arr, new Map(zip(base36keys, base36vals)));
 
-var alphabet =
-    new SymbolTable(iter('a', 26), new Map(zip(iter('a', 26).concat(iter('A', 26)), range(26).concat(range(26)))));
+var alphabet = new SymbolTable(iter('a', 26),
+                               new Map(zip(iter('a', 26).concat(iter('A', 26)),
+                                           range(26).concat(range(26)))));
 
 // < export mudder.js
 
-module.exports = {
-  SymbolTable,
-  base62,
-  base36,
-  alphabet,
-  longLinspace
-};
+module.exports = {SymbolTable, base62, base36, alphabet, longLinspace};
 // < export mudder.js

@@ -53,7 +53,7 @@ There are very few restrictions on what symbols the `SymbolTable` constructor ac
 
 ### Generate strings
 
-**`m.mudder(start = '', end = '' [, numStrings[, base[, numDivisions]]])`** for strings, or array-of-strings, `start` and `end`, returns a `numStrings`-length (default one) array of strings.
+**`m.mudder(start = '', end = '' [, numStrings[, base[, numDivisions[, placesToKeep]]]])`** for strings, or array-of-strings, `start` and `end`, returns a `numStrings`-length (default one) array of strings.
 
 `base` is an integer defaulting to the size of the symbol table `m`, but can be less than it if you, for some reason, wish to use only a subset of the symbol table.
 
@@ -63,7 +63,11 @@ If `start` or `end` are non-truthy, the first is replaced by the first symbol, a
 
 `numDivisions` defaults to `numStrings + 1` and must be greater than `numStrings`. It represents the number of pieces to subdivide the lexical space between `start` and `end` into—then the returned array will contain the first `numStrings` steps along that grid from `start` to `end`. You can customize `numDivisions` to be (much) larger than `numStrings` in cases where you know you are going to insert many strings between two endpoints, but only *one (or a few) at a time*.
 
+`placesToKeep` defaults to 0 and tells Mudder, instead of returning the shortest string(s) possible, to allow them to be up to (or greater than) this length.
+
 > For example, if you call `start = m.mudder(start, end, 1)[0]` over and over (overwriting `start` each iteration), you *halve* the space between the endpoints each call, eventually making the new string very long. If you *knew* you were going to do this, you can call `start = m.mudder(start, end, 1, undefined, 100)[0]`, i.e., set `numDivisons=100`, to subdivide the space between the endpoints a hundred times (instead of just two times), and return just the first 1/100th step from `start` to `end`. This makes your string length grow much more sedately, and you can always reverse `start` and `end` to get the same behavior going in the other direction. See [#7](https://github.com/fasiha/mudderjs/issues/7) for numerous examples, and a caveat if you’re using non-truthy `start`.
+
+> `placesTokeep` is useful when you want just one string back but also want to use a high `numDivisions`. For example, `base62.mudder('a', '0', 1, undefined, numDivisions)` is the same (`Z`) whether `numDivisions` is 100, 1000, or 10,000. By using a high `numDivisions` you probably don’t want this behavior: you probably want more dynamic range the more divisions you use. By passing in `placesToKeep`, you can ask Mudder to not aggressively truncate the strings it generates. With `placesToKeep=4`, the previous call returns `Zdg`, `Zxm`, and `ZzmA`.
 
 > If the symbol table was *not* prefix-free, the function will refuse to operate on *strings* `start`/`end` because, without the prefix-free criterion, a string can’t be parsed unambiguously: you have to split the string into an array of stringy symbols yourself. Invalid or unrecognized symbols are silently ignored.
 
@@ -959,8 +963,8 @@ SymbolTable.prototype.roundFraction = function(numerator, denominator, base) {
   return leftpad(digits, places, 0);
 };
 
-function chopDigits(rock, water) {
-  for (let idx = 0; idx < water.length; idx++) {
+function chopDigits(rock, water, placesToKeep = 0) {
+  for (let idx = placesToKeep; idx < water.length; idx++) {
     if (water[idx] && rock[idx] !== water[idx]) {
       return water.slice(0, idx + 1);
     }
@@ -979,14 +983,14 @@ function lexicographicLessThanArray(a, b) {
   return a.length < b.length;
 }
 
-function chopSuccessiveDigits(strings) {
+function chopSuccessiveDigits(strings, placesToKeep = 0) {
   const reversed = !lexicographicLessThanArray(strings[0], strings[1]);
   if (reversed) {
     strings.reverse();
   }
   const result =
     strings.slice(1).reduce((accum, curr) => accum.concat(
-                              [ chopDigits(accum[accum.length - 1], curr) ]),
+                              [ chopDigits(accum[accum.length - 1], curr, placesToKeep ) ]),
                             [ strings[0] ]);
   if (reversed) {
     result.reverse();
@@ -1005,7 +1009,7 @@ function truncateLexHigher(lo, hi) {
   return [ lo, hi ];
 }
 
-SymbolTable.prototype.mudder = function(a, b, numStrings, base, numDivisions) {
+SymbolTable.prototype.mudder = function(a, b, numStrings, base, numDivisions, placesToKeep = 0) {
   if (typeof a === 'number'){
     numStrings = a;
     a = '';
@@ -1025,7 +1029,7 @@ SymbolTable.prototype.mudder = function(a, b, numStrings, base, numDivisions) {
       v => v.res.concat(this.roundFraction(v.rem, v.den, base)));
   finalDigits.unshift(ad);
   finalDigits.push(bd);
-  return chopSuccessiveDigits(finalDigits)
+  return chopSuccessiveDigits(finalDigits, placesToKeep)
       .slice(1, finalDigits.length - 1)
       .map(v => this.digitsToString(v));
 };
