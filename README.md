@@ -12,10 +12,6 @@ The name came to me while I was writing an early version that called the central
 
 **Browser** Download [`mudder.min.js`](dist/mudder.min.js), then include it in your HTML: `<script src="mudder.min.js"></script>`. This loads the `mudder` object into the browser’s global namespace.
 
-**Ports** See [mudder_dart](https://pub.dev/packages/mudder_dart) for Dart/Flutter, contributed by [@tiagocpeixoto](https://github.com/tiagocpeixoto).
-
-**Try right now** My [blog post](https://fasiha.github.io/post/mudder/) lets you interactively experiment with this library.
-
 **Example usage** Create a new symbol table with the list of characters you want to use. In this example, we consider lowercase hexadecimal strings:
 ```js
 var mudder = require('mudder'); // only in Node
@@ -38,6 +34,10 @@ var strings = mudder.base62.mudder(1000);
 console.log(strings);
 // [ '03', '07', '0B', ... 'zo', 'zs', 'zw' ]
 ```
+
+**Ports** See [mudder_dart](https://pub.dev/packages/mudder_dart) for Dart/Flutter, contributed by [@tiagocpeixoto](https://github.com/tiagocpeixoto).
+
+**Try right now** My [blog post](https://fasiha.github.io/post/mudder/) lets you interactively experiment with this library.
 
 ## API
 
@@ -85,7 +85,7 @@ This library is written as a literate document: in this `README.md`, prose expla
 
 The Markdown “literate source” `README.md` is “tangled” into actual source code by [`tangle.js`](tangle.js) and can be invoked by `yarn prebuild` (or `npm run prebuild`).
 
-This results in a [`index.js`](index.js). Browserify makes this into a Universal Module (UMD) which is then optimized, minified, and transpiled by Google Closure Compiler (the JavaScript port) to `dist/mudder.min.js`. This can be invoked by `yarn build` (or `npm run build`).
+This results in a [`index.js`](index.js). ESBuild bundles this into [various](https://github.com/fasiha/mudderjs/pull/18) modules in [`dist/`](./dist/) including ESM, CommonJS, and IIFE. This can be invoked by `yarn build` (or `npm run build`).
 
 ## Literate source
 
@@ -217,7 +217,7 @@ console.log([ (200).toString(36), parseInt('5K', 36) ])
 ~~~
 (200)<sub>10</sub> = (1100 1000)<sub>2</sub> = (5K)<sub>36</sub>. One underlying number, many different representations. Each of these is a positional number system with a different base: base-10 is our everyday decimal system, base-2 is the binary system our computers operate on, and base-36 is an uncommon but valid alphanumeric system.
 
-Recall from grade school that this way of writing numbers, as (digit 1, digit 2, digit 3)<sub>base</sub>, means each digit is a multiple of `Math.pow(B, i)` where `i=0` for the right-most digit (in the ones place), and going up for each digit to its left.
+Recall from grade school that this way of writing numbers, as (digit 1, digit 2, digit 3)<sub>base=B</sub>, means each digit is a multiple of `Math.pow(B, i)` where `i=0` for the right-most digit (in the ones place), and going up for each digit to its left.
 ~~~js
 var dec = 2 * 100 + // 100 = Math.pow(10, 2)
           0 * 10 +  // 10 = Math.pow(10, 1)
@@ -546,7 +546,7 @@ SymbolTable.prototype.digitsToString = function(digits) {
 };
 // < export mudder.js
 ~~~
-This function doesn’t is independent of what base to operate on. It’s just blindly replacing numbers with strings using the one-to-one `SymbolTable.num2sym` array.
+This function is independent of what base to operate on. It’s just blindly replacing numbers with strings using the one-to-one `SymbolTable.num2sym` array.
 
 Confirming it works by going from number→digits→string:
 ~~~js
