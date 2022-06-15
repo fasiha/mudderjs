@@ -12,6 +12,8 @@ The name came to me while I was writing an early version that called the central
 
 **Browser** Download [`mudder.min.js`](dist/mudder.min.js), then include it in your HTML: `<script src="mudder.min.js"></script>`. This loads the `mudder` object into the browser’s global namespace.
 
+**TypeScript** The community maintains type definitions for this JavaScript library on [DefinitelyTyped](https://www.npmjs.com/package/@types/mudder). To get them, run `npm install --save-dev @types/mudder` (after first installing the JavaScript package, with `npm install --save mudder`), then import as usual—for example, `import {SymbolTable, base62} from 'mudder';`.
+
 **Example usage** Create a new symbol table with the list of characters you want to use. In this example, we consider lowercase hexadecimal strings:
 ```js
 var mudder = require('mudder'); // only in Node
