@@ -14,7 +14,12 @@ The name came to me while I was writing an early version that called the central
 
 **TypeScript** The community maintains type definitions for this JavaScript library on [DefinitelyTyped](https://www.npmjs.com/package/@types/mudder). To get them, run `npm install --save-dev @types/mudder` (after first installing the JavaScript package, with `npm install --save mudder`), then import as usual—for example, `import {SymbolTable, base62} from 'mudder';`.
 
-**Example usage** Create a new symbol table with the list of characters you want to use. In this example, we consider lowercase hexadecimal strings:
+**Example usage** Three symbol tables are pre-generated for your convenience:
+- `base62`: `0-9A-Za-z`,
+- `base36`: `0-9a-z` (lower- and upper-case accepted, to match `Number.toString`),
+- `alphabet`: `a-z` (lower- and upper-case accepted).
+
+Or you may create a new symbol table with the list of characters you want to use. In this example, we consider lowercase hexadecimal strings, and then ask for three strings between `ffff` and `fe0f`:
 ```js
 var mudder = require('mudder'); // only in Node
 var hex = new mudder.SymbolTable('0123456789abcdef');
@@ -23,11 +28,6 @@ console.log(hexstrings);
 // [ 'ff8', 'ff', 'fe8' ]
 ```
 The three strings are guaranteed to be the shortest and as-close-to-evenly-spaced between the two original strings (`ffff` and `fe0f`, in this case) as possible.
-
-As a convenience, the following pre-generated symbol table are provided:
-- `base62`: `0-9A-Za-z`,
-- `base36`: `0-9a-z` (lower- and upper-case accepted, to match `Number.toString`),
-- `alphabet`: `a-z` (lower- and upper-case accepted).
 
 You may also omit the start and/or end strings, and provide only the number of strings to subdivide the entire string space. (Even this number may also be omitted if you just want one string in the middle of the string space.)
 ```js
@@ -74,6 +74,154 @@ If `start` or `end` are non-truthy, the first is replaced by the first symbol, a
 > If the symbol table was *not* prefix-free, the function will refuse to operate on *strings* `start`/`end` because, without the prefix-free criterion, a string can’t be parsed unambiguously: you have to split the string into an array of stringy symbols yourself. Invalid or unrecognized symbols are silently ignored.
 
 **`m.mudder(number = 1)`** is equivalent to `m.mudder('', '', number)`. See above.
+
+#### Recipes
+In this section we attempt to highlight when the library's default behavior is fine and when you might need to use which specific arguments described in the API above.
+
+**Abeni:** *“I am just starting my database and need ten keys for the first set of data; I expect future keys to be interspersed among this set.”* This is the most benign case. With a new dataset, you probably want compact keys, so I recommend `base62`:
+```js
+var mudder = require('mudder'); // only in Node
+var keys = mudder.base62.mudder(10);
+console.log(keys);
+/*
+[
+  '5', 'B', 'G', 'M',
+  'S', 'X', 'd', 'j',
+  'o', 'u'
+]
+*/
+```
+
+*Now I have my eleventh data point and need a key between the 4th and 5th.*
+```js
+var newKey = mudder.base62.mudder(keys[3], keys[4]);
+console.log(newKey)
+// [ 'P' ]
+```
+
+*I need **two** keys between the first and the second.*
+```js
+var newKeys = mudder.base62.mudder(keys[0], keys[1], 2);
+console.log(newKeys)
+// [ '7', '9' ]
+```
+In general, as Abeni’s database grows, a data point may come before the first:
+```js
+console.log(mudder.base62.mudder(undefined, keys[0]))
+// [ '2' ]
+```
+or after the last:
+```js
+console.log(mudder.base62.mudder(keys[keys.length-1]))
+// [ 'w' ]
+```
+but assuming random ordering, the keys will grow in length as needed.
+
+**Bolanle:** *I’m also starting my database and also need ten keys for my initial data, but I am confident all future data will come **after** the initial data.* Bolanle does not want her first ten keys to span the entire `base62` gamut from `0` to `z` because she is confident most of her future keys will need to go after the tenth key, and Abeni’s approach would squander the bulk of lexicographic space.
+
+A simple approach would be, generate 99 keys covering the whole `base62` key space and keep only the first ten needed:
+```js
+var mudder = require('mudder'); // only in Node
+var keys = mudder.base62.mudder(99).slice(0, 10);
+console.log(keys);
+/*
+[
+  '0c', '1',  '1r',
+  '2',  '3',  '3i',
+  '4',  '4x', '5',
+  '6'
+]
+*/
+```
+or equivalently, use `numDivisions = 100` which does the same thing, just a more efficiently: split up the `base62` gamut into a hundred pieces and gets the first ten:
+```js
+var numDivisions = 100;
+var keys = mudder.base62.mudder('', '', 10, undefined, numDivisions);
+console.log(keys);
+/* Same as above:
+[
+  '0c', '1',  '1r',
+  '2',  '3',  '3i',
+  '4',  '4x', '5',
+  '6'
+]
+*/
+```
+(Note how we can use `''` (the empty string) instead of `undefined` for the start and end.)
+
+*And what if all my future data is likely to come **before** my initial data? Can I use `numDivisions` to generate keys close to the **end** of `base62`?* Yes, though, because you want to go “backwards” now, you need to actually give the start and end:
+```js
+console.log(mudder.base62.mudder('zzzzz', '0', 10, undefined, numDivisions));
+/*
+[
+  'z',  'yl', 'y',
+  'x',  'wt', 'w',
+  've', 'v',  'u',
+  't'
+]
+*/
+```
+Running from `z` to `t` covers the same amount of “lexicographic space” as the previous example from `0` to `6`.
+
+The brute-force way to achieve this, by the way, is:
+```js
+console.log(mudder.base62.mudder(undefined, undefined, 99).slice(-10));
+/*
+[
+  'tn', 'u', 'v',
+  've', 'w', 'wt',
+  'x',  'y', 'yl',
+  'z'
+]
+*/
+```
+which is quite similar to the above, just reversed (because this is still going from low to high, i.e., the start of `base62` to its end) and with more letters for `t` because of “rounding”.
+
+**Chinonso** *I need to insert ten keys between `n` and `l`, and I want them to be close to `n` because I know that later I’ll need **thousands** more keys “before” these ten and I cannot afford any wasted space.* Unless she is ok with the brute-force approach of generating, say, 10,000 keys between `n` and `l` and picking the first ten, Chinonso needs the final argument, `placesToKeep`:
+```js
+var mudder = require('mudder'); // only in Node
+var numDivisions = 10_000;
+var placesToKeep = 4;
+console.log(mudder.base62.mudder('n', 'l', 10, undefined, numDivisions, placesToKeep));
+/*
+[
+  'mzzE', 'mzyT',
+  'mzxh', 'mzwv',
+  'mzwA', 'mzvO',
+  'mzuc', 'mztr',
+  'mzt5', 'mzsJ'
+]
+*/
+```
+Without `placesToKeep`, Mudder will prefer shorter keys, which Chinonso wants to explicitly avoid:
+```js
+var numDivisions = 10_000;
+console.log(mudder.base62.mudder('n', 'l', 10, undefined, numDivisions)); // no placesToKeep
+/*
+[
+  'mzz',  'mzy', 'mzx',
+  'mzwv', 'mzw', 'mzv',
+  'mzu',  'mzt', 'mz',
+  'm'
+]
+*/
+```
+
+Note that Chinonso might not need `placesToKeep` if she needed to go from `l` to `n`:
+```js
+var numDivisions = 10_000;
+console.log(mudder.base62.mudder('l', 'n', 10, undefined, numDivisions));
+/*
+[
+  'l00m', 'l01',
+  'l02',  'l03',
+  'l03q', 'l04',
+  'l05',  'l06',
+  'l06v', 'l07'
+]
+*/
+```
+Although Mudder is trying to minimize key length here without `placesToKeep`, it needs to keep a fair number of digits going “forward” that it was able to “round off” when going “backwards”.
 
 ### For fun: string–number conversion
 
