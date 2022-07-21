@@ -4,7 +4,7 @@ Generate lexicographically-spaced strings between two strings from pre-defined a
 
 The name came to me while I was writing an early version that called the central function “midder” (i.e., the mid-point between strings), which I took to calling “mudder” from the memorable episode of *Firefly* called “Jaynestown”.
 
-![The hero of Canton, the man they call Jayne. (c) Fox.](jayne.jpg)
+![Jayne, confused, stands in front of a mud statue of himself](jayne.jpg)
 
 ## Quickstart
 
