@@ -69,7 +69,9 @@ SymbolTable.prototype.digitsToString = function(digits) {
 };
 SymbolTable.prototype.stringToDigits = function(string) {
   if (!this.isPrefixCode && typeof string === "string") {
-    throw new TypeError("parsing string without prefix code is unsupported. Pass in array of stringy symbols?");
+    throw new TypeError(
+      "parsing string without prefix code is unsupported. Pass in array of stringy symbols?"
+    );
   }
   if (typeof string === "string") {
     const re = new RegExp("(" + Array.from(this.sym2num.keys()).join("|") + ")", "g");
@@ -218,7 +220,12 @@ function chopSuccessiveDigits(strings, placesToKeep = 0) {
   if (reversed) {
     strings.reverse();
   }
-  const result = strings.slice(1).reduce((accum, curr) => accum.concat([chopDigits(accum[accum.length - 1], curr, placesToKeep)]), [strings[0]]);
+  const result = strings.slice(1).reduce(
+    (accum, curr) => accum.concat(
+      [chopDigits(accum[accum.length - 1], curr, placesToKeep)]
+    ),
+    [strings[0]]
+  );
   if (reversed) {
     result.reverse();
   }
@@ -249,12 +256,17 @@ SymbolTable.prototype.mudder = function(a, b, numStrings, base, numDivisions, pl
   const ad = this.stringToDigits(a, base);
   const bd = this.stringToDigits(b, base);
   const intermediateDigits = longLinspace(ad, bd, base, numStrings, numDivisions);
-  let finalDigits = intermediateDigits.map((v) => v.res.concat(this.roundFraction(v.rem, v.den, base)));
+  let finalDigits = intermediateDigits.map(
+    (v) => v.res.concat(this.roundFraction(v.rem, v.den, base))
+  );
   finalDigits.unshift(ad);
   finalDigits.push(bd);
   return chopSuccessiveDigits(finalDigits, placesToKeep).slice(1, finalDigits.length - 1).map((v) => this.digitsToString(v));
 };
-var iter = (char, len) => Array.from(Array(len), (_, i) => String.fromCharCode(char.charCodeAt(0) + i));
+var iter = (char, len) => Array.from(
+  Array(len),
+  (_, i) => String.fromCharCode(char.charCodeAt(0) + i)
+);
 var base62 = new SymbolTable(iter("0", 10).concat(iter("A", 26)).concat(iter("a", 26)));
 var base36arr = iter("0", 10).concat(iter("a", 26));
 var base36keys = base36arr.concat(iter("A", 26));
@@ -266,5 +278,11 @@ function zip(a, b) {
   return Array.from(Array(a.length), (_, i) => [a[i], b[i]]);
 }
 var base36 = new SymbolTable(base36arr, new Map(zip(base36keys, base36vals)));
-var alphabet = new SymbolTable(iter("a", 26), new Map(zip(iter("a", 26).concat(iter("A", 26)), range(26).concat(range(26)))));
+var alphabet = new SymbolTable(
+  iter("a", 26),
+  new Map(zip(
+    iter("a", 26).concat(iter("A", 26)),
+    range(26).concat(range(26))
+  ))
+);
 module.exports = { SymbolTable, base62, base36, alphabet, longLinspace };

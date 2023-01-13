@@ -1,6 +1,6 @@
 {
   "name": "mudder",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Find lexicographical points between strings",
   "main": "dist/mudder.min.js",
   "module": "dist/mudder.min.mjs",
@@ -38,8 +38,8 @@
     "url": "https://github.com/fasiha/mudderjs.git"
   },
   "devDependencies": {
-    "@chialab/esbuild-plugin-commonjs": "^0.14.10",
-    "esbuild": "^0.14.10",
+    "@chialab/esbuild-plugin-commonjs": "^0.17.2",
+    "esbuild": "^0.16.17",
     "tape": "^4.6.0"
   }
 }
